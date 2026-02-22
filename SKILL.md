@@ -1,3 +1,8 @@
+---
+name: tentacular
+description: Build, test, and deploy TypeScript workflow DAGs on Kubernetes using the tntc CLI. Use when creating new agentic workflows, deploying or managing existing workflows, writing or debugging workflow nodes, running tests, checking workflow status, viewing logs, or working with Tentacular secrets and contracts. Covers the full lifecycle: scaffold → validate → test → build → deploy → run → monitor.
+---
+
 # Tentacular
 
 ## Prerequisites
@@ -11,7 +16,7 @@ which tntc
 If that fails, install it now:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/randybias/tentacular/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/randybias/tentacular/main/install.sh | sh
 ```
 
 After install, confirm it works:
