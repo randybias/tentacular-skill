@@ -37,4 +37,4 @@ Skill versions track CLI versions. Skill `v0.1.x` documents CLI `v0.1.x` feature
 
 ## License
 
-Copyright (c) 2026 Mirantis, Inc. All rights reserved. See [LICENSE](LICENSE).
+MIT — Copyright (c) 2026 Mirantis, Inc. See [LICENSE](LICENSE).
