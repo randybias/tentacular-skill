@@ -4,21 +4,46 @@
 
 ## Part A: Design (before writing any code)
 
-### 1. Name and scaffold
+### 1. Create the workflow in the right place
+
+**Production workflows (tentacles) live outside the tentacular repo:**
+
+```
+~/workspace/tentacles/<workflow-name>/
+```
+
+Never create workflows inside the tentacular repository. The repo contains the
+tool and examples only. Secrets (`.secrets.yaml`) live in the tentacles directory
+and are never committed anywhere.
 
 ```bash
+cd ~/workspace/tentacles
 tntc init <workflow-name>   # kebab-case required
 cd <workflow-name>
 ```
 
-### 2. Author the contract first
+For the full tentacles location convention: `references/agent-workflow.md`.
+
+### 2. Choose your trigger type
+
+Triggers are defined in `workflow.yaml` under `triggers:`. Common types:
+
+| Type | Use when |
+|------|----------|
+| `manual` | Triggered via `POST /run` or `tntc run` |
+| `cron` | Scheduled execution — add `schedule: "0 9 * * *"` |
+| `queue` | NATS subject subscription — add `subject: my.subject` |
+
+For full trigger specs and options: `references/workflow-spec.md`.
+
+### 3. Author the contract first
 
 Every external dependency must be declared in `workflow.yaml` under `contract.dependencies`
 before any node is written. No exceptions.
 
 For contract structure: `references/contract.md`.
 
-### 3. Map the full data flow
+### 4. Map the full data flow
 
 For every node in the DAG, define its **data contract** before writing a single line:
 
@@ -43,7 +68,7 @@ If a node in your design is performative → redesign the DAG. Do not proceed.
 
 For the full performative node definition and examples: `references/node-data-flow.md`.
 
-### 4. Get confirmation
+### 5. Get confirmation
 
 Present the DAG, data flow map, and contract to the user. Get explicit confirmation
 before writing any code.
