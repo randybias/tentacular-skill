@@ -337,7 +337,7 @@ config:
 ```
 tntc configure --registry reg.io   # one-time setup (auto-profiles all envs)
 tntc cluster profile --env dev --save  # load env capabilities before designing
-cat .tentacular/envprofiles/dev.md # read Agent Guidance section
+cat ~/.tentacular/envprofiles/dev.md   # read Agent Guidance section (user-level config)
 tntc init my-workflow              # scaffold directory
 cd my-workflow
 # edit nodes/*.ts and workflow.yaml (informed by profile guidance)
@@ -418,8 +418,15 @@ Guidance** strings derived from those capabilities.
 ### Profile Generation
 
 Profiles are generated automatically when running
-`tntc configure` — one per environment, saved to
-`.tentacular/envprofiles/<env>.md` and `<env>.json`.
+`tntc configure` — one per environment, saved to the
+`envprofiles/` directory alongside the active config:
+
+- **User-level config** (`~/.tentacular/config.yaml`) →
+  saves to `~/.tentacular/envprofiles/<env>.{md,json}`
+- **Project-level config** (`.tentacular/config.yaml`
+  in CWD) → saves to `.tentacular/envprofiles/<env>.{md,json}`
+
+Project config takes priority if both exist.
 
 To generate or rebuild manually:
 
@@ -439,7 +446,8 @@ tntc cluster profile --env staging
 
 ### Before Building a Tentacle
 
-1. Check `.tentacular/envprofiles/<env>.md` exists.
+1. Find the profile: `~/.tentacular/envprofiles/<env>.md`
+   (or `.tentacular/envprofiles/<env>.md` for project config).
 2. If `generatedAt` > 7 days old → re-profile first.
 3. Read the **Agent Guidance** section at the bottom.
 4. Apply each guidance item to the workflow design.
