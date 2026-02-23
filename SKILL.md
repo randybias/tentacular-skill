@@ -1,17 +1,16 @@
 ---
 name: tentacular
-description: Use when installing the tntc CLI, configuring target Kubernetes
-  environments, generating cluster environment profiles, creating or modifying
-  TypeScript DAG workflows, testing workflow nodes, or deploying workflows to a
-  cluster. Also use when a workflow is broken, nodes are not passing data, or a
-  cluster profile needs refreshing.
+description: Use when you need to build secure production-grade workflows.  Designed
+  to work hand in hand with the tentacular CLI tool.  Requires a Kubernetes
+  cluster. Also use when a tentacular workflow (aka a "tentacle") is broken, nodes
+  are not passing data, or a target Kubernetes cluster profile needs refreshing.
 ---
 
 # Tentacular
 
-Tentacular runs TypeScript DAG workflows in Kubernetes with gVisor sandboxing,
-NetworkPolicy egress contracts, and secret isolation. The `tntc` CLI manages the
-full lifecycle.
+Tentacular runs TypeScript DAG workflows in Kubernetes with the secure Deno Typescript
+runtime, gVisor sandboxing, NetworkPolicy ingress/egress contracts ("zero trust networking"),
+and secret isolation. The tentacular CLI (`tntc`) manages the full lifecycle.
 
 **Find your phase below. Read only the phase file you need.**
 
