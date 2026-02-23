@@ -37,6 +37,17 @@ Testing or deploying an existing workflow?
   YES → REQUIRED: phases/05-test-and-deploy.md
 ```
 
+## Directory Rules
+
+| Path | Purpose |
+|------|---------|
+| `~/workspace/tentacles/<name>/` | **All production workflows. Always.** |
+| `<tentacular-repo>/example-workflows/` | Read-only reference. Never deploy from here. |
+| `~/.tentacular/envprofiles/` | Generated cluster profiles. Not workflow code. |
+
+**NEVER create a workflow inside the tentacular repository.**
+**NEVER deploy from `example-workflows/`.**
+
 ## Iron Laws
 
 ```

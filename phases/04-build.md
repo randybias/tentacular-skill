@@ -4,17 +4,7 @@
 
 ## Part A: Design (before writing any code)
 
-### 1. Create the workflow in the right place
-
-**Production workflows (tentacles) live outside the tentacular repo:**
-
-```
-~/workspace/tentacles/<workflow-name>/
-```
-
-Never create workflows inside the tentacular repository. The repo contains the
-tool and examples only. Secrets (`.secrets.yaml`) live in the tentacles directory
-and are never committed anywhere.
+### 1. Scaffold in the right place
 
 ```bash
 cd ~/workspace/tentacles
@@ -22,7 +12,7 @@ tntc init <workflow-name>   # kebab-case required
 cd <workflow-name>
 ```
 
-For the full tentacles location convention: `references/agent-workflow.md`.
+See Directory Rules in SKILL.md. Secrets (`.secrets.yaml`) live here and are never committed.
 
 ### 2. Choose your trigger type
 
