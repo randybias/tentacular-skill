@@ -22,6 +22,7 @@ Complete reference for `tntc` commands, flags, and configuration.
 | `list` | `tntc list` | `-n` namespace, `-o` json | List all deployed workflows with version, status, and age |
 | `undeploy` | `tntc undeploy <name>` | `-n` namespace, `--yes`/`-y` | Remove a deployed workflow (Service, Deployment, Secret, CronJobs). Use `-y` to skip confirmation in scripts. Note: ConfigMap `<name>-code` is not deleted. |
 | `cluster check` | `tntc cluster check` | `--fix`, `-n` namespace | Preflight validation of cluster readiness; `--fix` auto-remediates |
+| `cluster profile` | `tntc cluster profile` | `--env`, `--all`, `--output markdown\|json`, `--save`, `--force` | Capability snapshot for workflow design: CNI, CSI, RuntimeClasses, extensions, quotas, PSA, agent guidance. Auto-runs on `tntc configure`. |
 | `visualize` | `tntc visualize [dir]` | `--rich`, `--write` | Generate Mermaid diagram of the workflow DAG. `--rich` adds dependency graph, derived secrets, and network intent. `--write` writes `workflow-diagram.md` and `contract-summary.md` to the workflow directory. |
 
 ## Global Flags

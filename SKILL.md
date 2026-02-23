@@ -335,10 +335,12 @@ config:
 ## Common Workflow
 
 ```
-tntc configure --registry reg.io   # one-time setup
+tntc configure --registry reg.io   # one-time setup (auto-profiles all envs)
+tntc cluster profile --env dev --save  # load env capabilities before designing
+cat .tentacular/envprofiles/dev.md # read Agent Guidance section
 tntc init my-workflow              # scaffold directory
 cd my-workflow
-# edit nodes/*.ts and workflow.yaml
+# edit nodes/*.ts and workflow.yaml (informed by profile guidance)
 tntc validate                      # check spec validity
 tntc secrets check                 # verify secrets
 tntc secrets init                  # create .secrets.yaml
@@ -371,6 +373,8 @@ tntc run <name> -o json             # 6. Post-deploy verification
 
 **Required checklist before build/deploy:**
 
+- [ ] Cluster profile exists for target env (`envprofiles/<env>.md`) and is < 7 days old
+- [ ] Agent Guidance from profile applied to workflow design
 - [ ] Contract section present in workflow.yaml
 - [ ] `tntc validate` passes (contract + spec)
 - [ ] `tntc visualize --rich --write` reviewed with user
@@ -397,6 +401,74 @@ environment config > project config > user config >
 defaults. See
 [references/deployment-guide.md](references/deployment-guide.md)
 for full environment configuration details.
+
+## Cluster Profile
+
+**Before designing a tentacle for any target environment,
+load its cluster profile.** The profile answers: _what
+can I build here?_ Unlike `tntc cluster check` (which
+validates readiness), the profile captures capabilities:
+CNI plugin, NetworkPolicy support, StorageClasses, CSI
+drivers, RuntimeClasses (gVisor), installed extensions
+(Istio, cert-manager, Prometheus Operator, etc.),
+namespace quotas, LimitRanges, and Pod Security
+Admission posture. It ends with explicit **Agent
+Guidance** strings derived from those capabilities.
+
+### Profile Generation
+
+Profiles are generated automatically when running
+`tntc configure` — one per environment, saved to
+`.tentacular/envprofiles/<env>.md` and `<env>.json`.
+
+To generate or rebuild manually:
+
+```bash
+# Profile a specific environment and save
+tntc cluster profile --env prod --save
+
+# Profile all configured environments
+tntc cluster profile --all --save
+
+# Force rebuild (ignore freshness check)
+tntc cluster profile --env prod --save --force
+
+# Print to stdout without saving (inspect before committing)
+tntc cluster profile --env staging
+```
+
+### Before Building a Tentacle
+
+1. Check `.tentacular/envprofiles/<env>.md` exists.
+2. If `generatedAt` > 7 days old → re-profile first.
+3. Read the **Agent Guidance** section at the bottom.
+4. Apply each guidance item to the workflow design.
+
+### Agent Guidance Interpretation
+
+| Guidance string | What to do |
+|-----------------|------------|
+| `Use runtime_class: gvisor` | Set `runtime_class: gvisor` in workflow.yaml |
+| `gVisor not available` | Omit `runtime_class` or set `""` |
+| `kind cluster detected` | Set `runtime_class: ""`, `imagePullPolicy: IfNotPresent` |
+| `Istio detected: NetworkPolicy egress must include namespaceSelector for istio-system` | Add `namespaceSelector: istio-system` to all egress contract rules |
+| `Namespace enforces restricted PodSecurity` | Containers must be non-root, no privilege escalation |
+| `RWX storage available via <name>` | Use that StorageClass for any shared volume mounts |
+| `No RWX-capable StorageClass` | Each pod needs its own volume; no shared PVCs across replicas |
+| `ResourceQuota active in namespace` | Size resource requests/limits within the stated quota |
+| `cert-manager available` | TLS certificates can be auto-provisioned for HTTPS dependencies |
+
+### Drift-Triggered Re-profiling
+
+Re-run `tntc cluster profile --env <name> --save --force` when:
+
+- Deploy fails with `unknown RuntimeClass`
+- NetworkPolicy rejects traffic the profile said was allowed
+- PVC fails to bind but profile shows provisioner as available
+- `cluster check` passes but deploy produces unexpected resource errors
+- Profile `generatedAt` > 7 days old
+- K8s version in profile differs from what `cluster check` reports
+- User mentions cluster upgrade, new add-on, or infrastructure change
 
 ## Agent Workflow Guide
 
