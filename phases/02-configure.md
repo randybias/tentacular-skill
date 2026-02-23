@@ -13,14 +13,13 @@ with this phase. Proceed to `phases/03-profile.md`.
 
 ## Create or Update Config
 
-If no config exists, create one interactively with the user:
+If no config exists, bootstrap a stub with:
 
 ```bash
 tntc configure --registry <registry-url>   # e.g. ghcr.io/username
 ```
 
-Then open `~/.tentacular/config.yaml` (user-level) or `.tentacular/config.yaml`
-(project-level) and add environments. Minimum one environment:
+**`tntc configure` creates a stub — it sets `registry`, `namespace`, and `runtime_class` but does NOT add environment definitions.** You must edit the file to add them. Open `~/.tentacular/config.yaml` (user-level) or `.tentacular/config.yaml` (project-level) and add at minimum one environment block:
 
 ```yaml
 registry: ghcr.io/your-org

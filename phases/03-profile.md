@@ -9,10 +9,10 @@ produces workflows that fail silently in production.
 ## Check
 
 ```bash
-cat ~/.tentacular/envprofiles/<env>.md | head -3
+cat ~/.tentacular/envprofiles/<env>.md
 ```
 
-Check `generatedAt`. If it is less than 7 days old, skip to **Read the Profile** below.
+**Read the entire file output.** Check `generatedAt` on line 2. If less than 7 days old, proceed to **Read the Profile** below. Do not use `head`, `tail`, or any partial read — the Agent Guidance section is at the bottom and is mandatory.
 
 ## Generate or Refresh
 

@@ -61,8 +61,13 @@ For the full performative node definition and examples: `references/node-data-fl
 
 ### 5. Get confirmation
 
-Present the DAG, data flow map, and contract to the user. Get explicit confirmation
-before writing any code.
+Present the DAG, data flow map, and contract to the user.
+
+**STOP. Do not write any code. Do not create any files. Do not begin Part B.**
+
+Wait for the user to reply with explicit confirmation that the design is correct.
+A response of "looks good", "go ahead", or "yes" counts. Silence does not count.
+Starting to write nodes before confirmation is a violation of Iron Law 4.
 
 ---
 
@@ -72,7 +77,9 @@ Repeat this cycle for every node, in DAG topological order (roots first):
 
 ### Step 1: Write the test fixture
 
-Before writing the node, write its test fixture in `tests/fixtures/<node-name>.json`:
+Fixture naming: node file `nodes/fetch-issues.ts` → fixture file `tests/fixtures/fetch-issues.json`. The name before `.ts` is the name before `.json`. Exactly.
+
+Before writing the node, create its fixture:
 
 ```json
 {
@@ -109,7 +116,26 @@ export default async function run(ctx: Context, input: unknown): Promise<unknown
 }
 ```
 
-For the full Context API (`ctx.dependency`, `ctx.secrets`, `ctx.config`, `ctx.log`): `references/node-development.md`.
+**Context API — use these, do not invent alternatives:**
+
+```typescript
+// Call an external dependency (declared in contract.dependencies)
+const dep = ctx.dependency("my-service");
+const resp = await dep.fetch!("/path", { method: "GET", headers: { Authorization: `Bearer ${dep.secret}` } });
+const data = await resp.json();
+
+// Read a secret (declared in contract.secrets)
+const token = ctx.secrets["my-token"];
+
+// Read workflow config (declared in contract.config)
+const repoName = ctx.config["repo-name"];
+
+// Logging (does not count as output — never return only log data)
+ctx.log.info("message");
+ctx.log.error("error message");
+```
+
+For full Context API details: `references/node-development.md`.
 
 ### Step 4: Run the test — verify it passes AND the output is correct
 
@@ -120,11 +146,15 @@ tntc test <workflow-name>/<node-name>
 Verify:
 - [ ] Test passes (exit 0)
 - [ ] Output matches the `expected` fixture exactly
-- [ ] Output is not `{}`, null, or empty
-- [ ] Output contains the fields the next node's input expects
+- [ ] Output is not `{}`, `null`, `undefined`, or an empty array
+- [ ] Output contains every field that the next node's data contract lists under `Input`
 
-**If the output is empty or only contains status/log fields: the node is
-performative. Delete it. Return to Step 1 and redesign.**
+**Concrete failure test:** take the output object and ask: "Could the next node complete its job using only these fields?" If no → the node is performative. Delete it. Return to Step 1 and redesign.
+
+Examples of outputs that FAIL this test even though they look non-empty:
+- `{ status: "ok" }` — next node can't do anything with a status string
+- `{ count: 5 }` — next node needed `{ issues: [...] }`, not the count
+- `{ message: "fetched 5 issues" }` — a log message dressed as output
 
 ### Step 5: Gate before next node
 

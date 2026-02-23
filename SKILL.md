@@ -15,6 +15,9 @@ full lifecycle.
 
 **Find your phase below. Read only the phase file you need.**
 
+Do not assume a phase is complete. Run its gate verification commands to confirm.
+Do not skip to a later phase because the task seems straightforward.
+
 ## Lifecycle
 
 ```

@@ -94,15 +94,26 @@ the data flow, and find the performative or broken node.
 ## Querying Deployed Workflows
 
 `tntc list`, `tntc status`, `tntc logs`, and `tntc run` do not support `--env`.
-Pass KUBECONFIG and namespace explicitly:
+You must resolve the actual kubeconfig path and namespace from config first:
 
 ```bash
-KUBECONFIG=<env.kubeconfig> tntc list -n <env.namespace>
-KUBECONFIG=<env.kubeconfig> tntc status <name> -n <env.namespace>
-KUBECONFIG=<env.kubeconfig> tntc logs <name> -n <env.namespace>
+# Step 1: read the actual values from config
+cat ~/.tentacular/config.yaml
+# Find your environment block, e.g.:
+#   prod:
+#     kubeconfig: ~/secrets/prod.kubeconfig   ← this is the path
+#     namespace: tentacular-prod              ← this is the namespace
+
+# Step 2: expand ~ manually — do NOT pass literal ~
+# e.g. ~/secrets/prod.kubeconfig → /Users/yourname/secrets/prod.kubeconfig
+
+# Step 3: run with resolved values
+KUBECONFIG=/Users/yourname/secrets/prod.kubeconfig tntc list -n tentacular-prod
+KUBECONFIG=/Users/yourname/secrets/prod.kubeconfig tntc status <name> -n tentacular-prod
+KUBECONFIG=/Users/yourname/secrets/prod.kubeconfig tntc logs <name> -n tentacular-prod
 ```
 
-Find kubeconfig and namespace values in `~/.tentacular/config.yaml`.
+Do not use `<env.kubeconfig>` literally. Do not pass `~` unexpanded.
 
 ---
 
