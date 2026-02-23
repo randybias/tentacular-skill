@@ -11,33 +11,20 @@ ls ~/.tentacular/engine/main.ts 2>/dev/null && echo "engine ok" || echo "engine 
 
 If both succeed, you are done with this phase.
 
-## Install tntc binary
+## Install
 
-If `tntc` is missing:
+If `tntc` is missing or the engine is missing, run the install script — it installs
+both the `tntc` binary and the Deno engine:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/randybias/tentacular/main/install.sh | sh
 ```
 
-## Install the engine
-
-The install script only downloads the `tntc` binary. `tntc test` and `tntc dev` also
-require the Deno engine directory at `~/.tentacular/engine/`. Install it manually:
-
+Then verify both are present:
 ```bash
-git clone --depth=1 https://github.com/randybias/tentacular /tmp/tentacular-src
-mkdir -p ~/.tentacular
-cp -r /tmp/tentacular-src/engine ~/.tentacular/engine
-rm -rf /tmp/tentacular-src
+tntc version
+ls ~/.tentacular/engine/main.ts
 ```
-
-Verify:
-```bash
-ls ~/.tentacular/engine/main.ts   # must exist
-```
-
-⚠️ This is a known gap in the install script. Until the release bundles the engine,
-this manual step is required after every clean install.
 
 ## Cluster prerequisites (first-time setup only)
 
@@ -68,7 +55,7 @@ If gVisor is intentionally absent (e.g., kind cluster), set `runtime_class: ""` 
 | `tntc v1.x.x` + `engine ok` | Ready | Proceed to phase 02 |
 | `dev (commit none, built unknown)` + `engine ok` | Source build | Proceed to phase 02 |
 | `tntc version` fails | Install failed | Stop. Surface error. Do not proceed. |
-| `engine MISSING` | Engine not installed | Run the engine install block above |
+| `engine MISSING` | Engine not installed | Re-run `install.sh` |
 
 **If either check fails: stop completely.** Do not attempt any other tntc commands.
 

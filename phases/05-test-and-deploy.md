@@ -132,22 +132,6 @@ Do not use `<env.kubeconfig>` literally. Do not pass `~` unexpanded.
 
 ## Known Issues
 
-### WEBHOOK_SECRET crash on startup
-
-The engine always reads `secrets.github.webhook_secret` at startup, regardless of
-trigger type. If this key is absent from `.secrets.yaml`, the pod enters
-CrashLoopBackOff immediately.
-
-**Workaround for cron/queue/manual workflows** — add this to `.secrets.yaml`:
-
-```yaml
-github:
-  webhook_secret: "unused"
-```
-
-This is a known engine bug. It only affects workflows that do NOT have a real
-`github.webhook_secret` value (i.e. non-webhook-triggered workflows).
-
 ### tntc build --push requires Docker
 
 `tntc build --push` requires a running Docker daemon. If Docker is unavailable,
