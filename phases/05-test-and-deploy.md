@@ -2,6 +2,8 @@
 
 **Prerequisites: phases 01–04 complete. All nodes tested individually.**
 
+For fixture format, mock context, and advanced test patterns: `references/testing-guide.md`.
+
 ## Testing Sequence
 
 Run in order. Each gate must pass before the next step.

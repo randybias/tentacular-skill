@@ -32,6 +32,7 @@ Every external dependency must be declared in `workflow.yaml` under `contract.de
 before any node is written. No exceptions.
 
 For contract structure: `references/contract.md`.
+For agent planning steps and E2E cycle: `references/agent-workflow.md`.
 
 ### 4. Map the full data flow
 
@@ -107,6 +108,8 @@ export default async function run(ctx: Context, input: unknown): Promise<unknown
   return { /* meaningful data */ };
 }
 ```
+
+For the full Context API (`ctx.dependency`, `ctx.secrets`, `ctx.config`, `ctx.log`): `references/node-development.md`.
 
 ### Step 4: Run the test — verify it passes AND the output is correct
 
