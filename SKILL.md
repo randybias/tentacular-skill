@@ -74,9 +74,9 @@ Profile resolution: same order — project-level wins if present.
 1. tntc must be installed and verified before any other work.
 2. A fresh cluster profile must exist before designing any workflow.
 3. Every node must receive data, transform it, and return it — no performative nodes, ever.
-4. Every node must be individually tested (fixture passing, credentials verified HTTP 200)
-   before the DAG is assembled. The full pipeline must be tested and data flow verified
-   before any deploy.
+4. Every node must be individually tested (fixture passing, all authenticated dependencies
+   verified working) before the DAG is assembled. The full pipeline must be tested and
+   data flow verified before any deploy.
 ```
 
 Violating any Iron Law means starting that phase over, not patching around it.

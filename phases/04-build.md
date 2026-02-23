@@ -147,19 +147,28 @@ Outputs that FAIL this test:
 - `{ count: 5 }` — next node needed `{ issues: [...] }`, not the count
 - `{ message: "fetched 5 issues" }` — a log string is not data
 
-#### Step 5: Validate credentials for any node that calls an external dependency
+#### Step 5: Validate credentials for any node that touches an authenticated dependency
 
-If the node calls an external API, a 401 or 403 in test output means the credentials
-are wrong or missing. **Do not proceed with a broken credential.**
+This applies to: external APIs, databases, message queues, object storage, caches,
+or any other dependency that requires auth.
+
+An auth failure in a node test means the node is not done. **Do not proceed.**
+
+Signs of a broken credential:
+- HTTP 401 or 403 from an API
+- Database connection refused or authentication failed
+- Queue consumer/producer rejected (permission denied, bad credentials)
+- Any "unauthorized", "forbidden", or "invalid token" error in test output
 
 ```bash
-# A node whose test returns HTTP 403 is not done — it has not been tested
-# Stop. Ask the user for valid credentials or API keys before continuing.
+# Stop. Surface the failure to the user.
+# Ask for the correct credentials, connection string, or subscription key.
+# Do not push the DAG with a node that cannot authenticate to its dependency.
 ```
 
 A node is only "done" when:
-- Its individual test passes with a real or realistic mock response
-- If it calls an external API: that API returns 2xx, not 4xx
+- Its individual test passes
+- Every authenticated dependency it uses responds successfully
 
 ---
 
@@ -168,7 +177,7 @@ A node is only "done" when:
 Before running `tntc test --pipeline` or deploying:
 
 - [ ] Every node has a passing individual test
-- [ ] Every node that calls an external dependency has had its credentials verified (2xx response)
+- [ ] Every node that touches an authenticated dependency has had its credentials verified (no auth errors)
 - [ ] No node's test was skipped on the assumption it would be caught later
 
 ```bash
@@ -184,7 +193,7 @@ Both must pass before proceeding to phase 05.
 
 | Mistake | Consequence | Fix |
 |---------|-------------|-----|
-| Node test returns 403 and is ignored | All downstream nodes fail in prod | Stop, fix credentials before continuing |
+| Auth failure in node test ignored (403, connection refused, bad token) | Broken auth lands in prod | Stop, ask user for correct credentials before continuing |
 | Fixture `expected: {}` | Test passes even if node returns nothing | Assert on actual data content |
 | Node returns `{ status: "ok" }` only | Next node receives no usable data | Return the data the next node needs |
 | Pushing DAG before pipeline test | Broken data flow lands in dev/prod | `tntc test --pipeline` must pass first |
