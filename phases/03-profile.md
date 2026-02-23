@@ -16,6 +16,13 @@ cat ~/.tentacular/envprofiles/<env>.md
 
 ## Generate or Refresh
 
+⚠️ `tntc cluster profile` requires the binary version that includes this command.
+Verify it is available:
+```bash
+tntc cluster profile --help 2>&1 | head -1
+```
+If `unknown command` is returned, the installed binary is too old — update tntc first.
+
 ```bash
 # Generate for one environment
 tntc cluster profile --env <name> --save

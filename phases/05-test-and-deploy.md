@@ -130,6 +130,54 @@ Do not use `<env.kubeconfig>` literally. Do not pass `~` unexpanded.
 
 ---
 
+## Known Issues
+
+### WEBHOOK_SECRET crash on startup
+
+The engine always reads `secrets.github.webhook_secret` at startup, regardless of
+trigger type. If this key is absent from `.secrets.yaml`, the pod enters
+CrashLoopBackOff immediately.
+
+**Workaround for cron/queue/manual workflows** — add this to `.secrets.yaml`:
+
+```yaml
+github:
+  webhook_secret: "unused"
+```
+
+This is a known engine bug. It only affects workflows that do NOT have a real
+`github.webhook_secret` value (i.e. non-webhook-triggered workflows).
+
+### tntc build --push requires Docker
+
+`tntc build --push` requires a running Docker daemon. If Docker is unavailable,
+deploy using the pre-existing engine image:
+
+```bash
+tntc deploy --env <target> --skip-live-test
+```
+
+The engine image (`ghcr.io/randybias/tentacular-engine:latest`) is shared across
+all workflows — it does not need to be rebuilt per workflow.
+
+---
+
+## Exposing Workflows to External Traffic
+
+For workflows with `queue` or `webhook` triggers that need to receive traffic from
+outside the cluster (e.g. GitHub webhooks, external event sources):
+
+```bash
+# Apply the ingress + service from the tentacular repo:
+kubectl apply -f https://raw.githubusercontent.com/randybias/tentacular/main/deploy/webhook/ingress.yaml
+kubectl apply -f https://raw.githubusercontent.com/randybias/tentacular/main/deploy/webhook/service.yaml
+```
+
+Check the ingress for the required DNS name and TLS configuration. The ingress
+assumes cert-manager with a `letsencrypt-prod` cluster-issuer is present.
+
+---
+
 ## Undeploy
 
 ```bash

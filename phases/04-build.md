@@ -14,6 +14,36 @@ cd <workflow-name>
 
 See Directory Rules in SKILL.md. Secrets (`.secrets.yaml`) live here and are never committed.
 
+**workflow.yaml schema — two common mistakes:**
+
+Nodes use `path:` (not `source:`). Edges are a separate top-level `edges:` list
+(not `depends_on:` inside node blocks). The init scaffold shows the correct format
+but the wrong pattern is easy to write from memory:
+
+```yaml
+# ✅ CORRECT
+nodes:
+  fetch-data:
+    path: ./nodes/fetch-data.ts
+  transform:
+    path: ./nodes/transform.ts
+
+edges:
+  - from: fetch-data
+    to: transform
+
+# ❌ WRONG — these keys do not exist in the schema
+nodes:
+  fetch-data:
+    source: nodes/fetch-data.ts      # ← wrong key
+  transform:
+    source: nodes/transform.ts
+    depends_on:                       # ← wrong: edges go in their own section
+      - fetch-data
+```
+
+Run `tntc validate` after writing `workflow.yaml` to catch schema errors before writing any nodes.
+
 ### 2. Choose your trigger type
 
 Triggers are defined in `workflow.yaml` under `triggers:`. Common types:
