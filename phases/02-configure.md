@@ -74,9 +74,37 @@ KUBECONFIG=/full/path/to/kubeconfig tntc cluster check -n <namespace> --fix
 | cluster check result | Action |
 |----------------------|--------|
 | All checks pass ✓ | Proceed to phase 03 |
-| `gVisor RuntimeClass` fails | Run gVisor install from phase 01 |
+| `gVisor RuntimeClass` fails | See **gVisor not installed** below |
 | `Namespace` fails | Re-run with `--fix`, or create namespace manually |
 | `RBAC permissions` fails | Re-run with `--fix` |
 | K8s API unreachable | Verify kubeconfig path and cluster connectivity |
+
+### gVisor not installed
+
+If `tntc cluster check` reports `✗ gVisor RuntimeClass`, the cluster is missing the
+gVisor sandbox runtime. This blocks all workflow deploys that use `runtime_class: gvisor`.
+
+**Tell the user their cluster does not have gVisor installed.** They need to run the
+install script from the tentacular repository on each cluster node (requires root):
+
+```bash
+# Run on each worker node that will execute workflows:
+curl -fsSL https://raw.githubusercontent.com/randybias/tentacular/main/deploy/gvisor/install.sh | sudo bash
+
+# Then apply the RuntimeClass to the cluster (once per cluster):
+kubectl apply -f https://raw.githubusercontent.com/randybias/tentacular/main/deploy/gvisor/runtimeclass.yaml
+
+# Verify gVisor is working:
+kubectl apply -f https://raw.githubusercontent.com/randybias/tentacular/main/deploy/gvisor/test-pod.yaml
+kubectl wait --for=condition=Ready pod/gvisor-test --timeout=60s
+kubectl logs gvisor-test   # should contain gVisor kernel messages
+kubectl delete pod gvisor-test
+```
+
+After installation, re-run `tntc cluster check` to confirm `✓ gVisor RuntimeClass`.
+
+**Alternative:** If gVisor cannot be installed on this cluster (managed cloud, no node
+access), set `runtime_class: ""` in the environment config. Workflows will run without
+sandboxing — note the security implications and confirm with the user before proceeding.
 
 Only then: proceed to `phases/03-profile.md`.
