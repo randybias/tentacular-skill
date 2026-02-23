@@ -71,15 +71,17 @@ Starting to write nodes before confirmation is a violation of Iron Law 4.
 
 ---
 
-## Part B: Build (one node at a time, strictly in order)
+## Part B: Build
 
-Repeat this cycle for every node, in DAG topological order (roots first):
+Nodes can be written in any order or in parallel. What is not negotiable:
+**every node must be individually tested and its credentials verified before
+the DAG is assembled and deployed.** Writing a node is not done until its test passes.
 
-### Step 1: Write the test fixture
+### For each node:
+
+#### Step 1: Write the test fixture
 
 Fixture naming: node file `nodes/fetch-issues.ts` → fixture file `tests/fixtures/fetch-issues.json`. The name before `.ts` is the name before `.json`. Exactly.
-
-Before writing the node, create its fixture:
 
 ```json
 {
@@ -88,84 +90,86 @@ Before writing the node, create its fixture:
 }
 ```
 
-The `expected` field MUST assert on the actual data content — not just shape,
-not just "non-null". If the node fetches data, the fixture must use a real or
-realistic mock output that downstream nodes can use.
+The `expected` field MUST assert on actual data content — not just shape, not just "non-null". If the node fetches data, the fixture must use a real or realistic mock output that downstream nodes can use.
 
-### Step 2: Run the test — watch it fail
+#### Step 2: Verify the fixture fails first
 
 ```bash
 tntc test <workflow-name>/<node-name>
 ```
 
-The test must fail because the node doesn't exist yet. If it passes, the fixture
-is wrong — fix the fixture before proceeding.
+Must fail because the node doesn't exist. If it passes: the fixture is wrong — fix it.
 
-### Step 3: Write the node
+#### Step 3: Write the node
 
-Write the minimum TypeScript to make the test pass.
-
-Node contract:
 ```typescript
 import type { Context } from "tentacular";
 
 export default async function run(ctx: Context, input: unknown): Promise<unknown> {
-  // input: validated data from upstream node (or trigger for root nodes)
-  // return: data that downstream node(s) will receive — never null, never {}
-  return { /* meaningful data */ };
+  // input: data from upstream node (or trigger for root nodes)
+  // return: data downstream nodes will receive — never null, never {}
+  return { /* data, not status */ };
 }
 ```
 
-**Context API — use these, do not invent alternatives:**
+**Context API:**
 
 ```typescript
-// Call an external dependency (declared in contract.dependencies)
+// External dependency (must be declared in contract.dependencies)
 const dep = ctx.dependency("my-service");
 const resp = await dep.fetch!("/path", { method: "GET", headers: { Authorization: `Bearer ${dep.secret}` } });
 const data = await resp.json();
 
-// Read a secret (declared in contract.secrets)
+// Secrets and config
 const token = ctx.secrets["my-token"];
-
-// Read workflow config (declared in contract.config)
 const repoName = ctx.config["repo-name"];
 
-// Logging (does not count as output — never return only log data)
+// Logging — never return only log data
 ctx.log.info("message");
-ctx.log.error("error message");
 ```
 
-For full Context API details: `references/node-development.md`.
+For full Context API: `references/node-development.md`.
 
-### Step 4: Run the test — verify it passes AND the output is correct
+#### Step 4: Run the test — verify it passes AND output is correct
 
 ```bash
 tntc test <workflow-name>/<node-name>
 ```
 
-Verify:
 - [ ] Test passes (exit 0)
-- [ ] Output matches the `expected` fixture exactly
 - [ ] Output is not `{}`, `null`, `undefined`, or an empty array
-- [ ] Output contains every field that the next node's data contract lists under `Input`
+- [ ] Output contains every field the next node's data contract lists under `Input`
 
-**Concrete failure test:** take the output object and ask: "Could the next node complete its job using only these fields?" If no → the node is performative. Delete it. Return to Step 1 and redesign.
+**Concrete failure test:** ask "Could the next node complete its job using only these fields?" If no → the node is performative. Redesign.
 
-Examples of outputs that FAIL this test even though they look non-empty:
-- `{ status: "ok" }` — next node can't do anything with a status string
+Outputs that FAIL this test:
+- `{ status: "ok" }` — next node can't use a status string
 - `{ count: 5 }` — next node needed `{ issues: [...] }`, not the count
-- `{ message: "fetched 5 issues" }` — a log message dressed as output
+- `{ message: "fetched 5 issues" }` — a log string is not data
 
-### Step 5: Gate before next node
+#### Step 5: Validate credentials for any node that calls an external dependency
 
-Only write the next node after the current node's test passes AND output is verified.
-No batching. No "I'll test them all at the end."
+If the node calls an external API, a 401 or 403 in test output means the credentials
+are wrong or missing. **Do not proceed with a broken credential.**
+
+```bash
+# A node whose test returns HTTP 403 is not done — it has not been tested
+# Stop. Ask the user for valid credentials or API keys before continuing.
+```
+
+A node is only "done" when:
+- Its individual test passes with a real or realistic mock response
+- If it calls an external API: that API returns 2xx, not 4xx
 
 ---
 
-## Validate the DAG
+## Gate: all nodes done before DAG assembly
 
-After all nodes are written and tested:
+Before running `tntc test --pipeline` or deploying:
+
+- [ ] Every node has a passing individual test
+- [ ] Every node that calls an external dependency has had its credentials verified (2xx response)
+- [ ] No node's test was skipped on the assumption it would be caught later
 
 ```bash
 tntc validate
@@ -180,10 +184,9 @@ Both must pass before proceeding to phase 05.
 
 | Mistake | Consequence | Fix |
 |---------|-------------|-----|
-| Writing all nodes before testing | Cascading failures, unclear which node is broken | One node at a time, test each |
+| Node test returns 403 and is ignored | All downstream nodes fail in prod | Stop, fix credentials before continuing |
 | Fixture `expected: {}` | Test passes even if node returns nothing | Assert on actual data content |
 | Node returns `{ status: "ok" }` only | Next node receives no usable data | Return the data the next node needs |
+| Pushing DAG before pipeline test | Broken data flow lands in dev/prod | `tntc test --pipeline` must pass first |
 | Skipping DAG data flow map | Performative nodes not caught until pipeline test | Map before coding |
 | Writing contract after nodes | Nodes access dependencies not declared in contract | Contract always first |
-
-Proceed to: `phases/05-test-and-deploy.md`.
