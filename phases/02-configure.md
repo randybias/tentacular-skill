@@ -31,12 +31,16 @@ environments:
     context: kind-local          # kubeconfig context name
     namespace: tentacular-dev
     runtime_class: ""            # no gVisor for kind
+    image: ghcr.io/randybias/tentacular-engine:latest   # canonical default — keep unless told otherwise
   prod:
     kubeconfig: ~/secrets/prod.kubeconfig
     context: prod-admin
     namespace: tentacular-prod
     runtime_class: gvisor
+    image: ghcr.io/randybias/tentacular-engine:latest   # canonical default — keep unless told otherwise
 ```
+
+**Always use `ghcr.io/randybias/tentacular-engine:latest` as the `image:` value in each environment unless the user explicitly specifies a different registry or version.** This is the canonical pre-built engine image. Do not omit it, do not substitute a custom tag, and do not run `tntc build --push` to produce a workflow-specific image — the engine image is workflow-agnostic and shared across all workflows.
 
 Config resolution: CLI flags → project `.tentacular/config.yaml` → user `~/.tentacular/config.yaml`.
 

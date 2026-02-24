@@ -62,6 +62,41 @@ If dev environment is unavailable: stop and resolve that before deploying to pro
 
 ---
 
+## Cron Workflow Testing
+
+Cron workflows have no webhook or queue trigger — they fire on a schedule. **You must manually trigger them for testing.** Never wait for the schedule to fire to verify a fresh deploy.
+
+### Step 1: Deploy first, then trigger manually
+
+```bash
+tntc deploy --env <target>
+tntc status <workflow-name>   # wait for ready
+tntc run <workflow-name>      # manual trigger — fires the workflow immediately
+```
+
+### Step 2: Check logs — do not undeploy immediately
+
+After `tntc run`, the workflow pod runs to completion and its logs persist briefly. **Keep the workflow deployed** until you have confirmed the output is correct.
+
+```bash
+KUBECONFIG=/full/path/to/kubeconfig tntc logs <workflow-name> -n <namespace>
+```
+
+If `tntc logs` returns nothing yet, the pod may still be running. Poll until output appears:
+
+```bash
+# Check pod status directly if tntc logs is empty:
+KUBECONFIG=/full/path/to/kubeconfig kubectl get pods -n <namespace> -l workflow=<workflow-name>
+```
+
+### Step 3: Verify output before trusting the schedule
+
+The manual trigger output must contain correct end-to-end data — not `{}`, not a status string. Only after confirming real output should you trust the scheduled run.
+
+**Do not mark a cron workflow as verified by the schedule alone.** The first scheduled fire can happen hours later and may silently fail if the deploy had issues.
+
+---
+
 ## Deploy
 
 Only after all 5 gates pass:

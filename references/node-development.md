@@ -21,6 +21,49 @@ export default async function run(ctx: Context, input: unknown): Promise<unknown
 
 The engine validates that the default export is a function at load time. If the export is missing or not a function, the engine throws an error.
 
+---
+
+## Deno Runtime Rules
+
+Nodes run inside Deno (not Node.js). The import system and runtime constraints differ from Node.js. **Violating these rules causes silent failures or crashes at runtime — often only inside gVisor.**
+
+### Import Rules — read before writing any `import` statement
+
+| ✅ Use | ❌ Never use | Reason |
+|--------|-------------|--------|
+| `jsr:@scope/pkg@x.y.z` | `npm:pg`, `npm:axios`, etc. | npm compat mode is unreliable under gVisor; some packages call native syscalls that gVisor blocks |
+| `https://deno.land/x/...` | `require(...)` | CommonJS not supported in Deno |
+| `https://esm.sh/...` (HTTPS import) | bare specifiers without prefix | Deno requires explicit URLs or import maps |
+
+**When in doubt: check [jsr.io](https://jsr.io) before using any package. If it's only on npm and not jsr or deno.land, flag it for review.**
+
+### Common Package Reference
+
+| Need | Use |
+|------|-----|
+| PostgreSQL | `import { Client } from "jsr:@db/postgres@0.19.5"` |
+| HTTP requests | Native `fetch()` — built into Deno, no import needed |
+| NATS messaging | `import { connect } from "https://deno.land/x/nats/src/mod.ts"` |
+| Blob/S3 storage | `import { S3Client } from "https://deno.land/x/s3_lite_client/mod.ts"` |
+| YAML parsing | `import { parse } from "jsr:@std/yaml"` |
+| UUID | `import { v4 } from "jsr:@std/uuid"` |
+| Date/time | Native `Date` or `jsr:@std/datetime` |
+
+### gVisor Constraints
+
+gVisor intercepts syscalls. Some operations that work in standard Deno **will crash inside gVisor**:
+
+- ❌ Native binary execution (`Deno.Command`, `Deno.run`) — blocked
+- ❌ FFI (`Deno.dlopen`) — blocked
+- ❌ Writes outside `/tmp` — blocked (no persistent filesystem)
+- ❌ Raw socket ops, `AF_UNIX` sockets — limited support
+- ✅ `fetch()`, `crypto`, `TextEncoder`, standard I/O — fully supported
+- ✅ `jsr:@db/postgres` — uses TCP, works fine under gVisor
+
+If a node must exec a binary or use FFI: **stop and ask the user** — that node cannot run in a gVisor sandbox and requires `runtime_class: ""` with explicit acknowledgement of the security tradeoff.
+
+---
+
 ## Context.dependency (Primary API)
 
 ```typescript
