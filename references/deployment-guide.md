@@ -545,12 +545,15 @@ API. All subsequent commands route through MCP.
 tntc cluster check
 ```
 
-Runs preflight validation via the MCP server to ensure
-the cluster is ready for deployment.
+Runs preflight validation via the MCP server (using
+the `cluster_preflight` MCP tool) to ensure the
+cluster is ready for deployment. No direct K8s API
+access is needed -- all checks route through MCP.
 
 ### Checks Performed
 
-- Kubernetes API reachability
+- MCP server reachability (which validates K8s API
+  connectivity from within the cluster)
 - Target namespace exists
 - gVisor RuntimeClass is available
 - RBAC permissions
@@ -569,7 +572,7 @@ tntc cluster check -n production
 Output format:
 
 ```
-  ✓ Kubernetes API reachable
+  ✓ MCP server reachable (K8s API healthy)
   ✓ Namespace "production" exists
   ✓ gVisor RuntimeClass available
 
@@ -722,6 +725,29 @@ CronJob properties:
 - `concurrencyPolicy: Forbid` (no overlapping runs)
 - `successfulJobsHistoryLimit: 3`, `failedJobsHistoryLimit: 3`
 - Labels: `app.kubernetes.io/name`, `app.kubernetes.io/managed-by: tentacular`
+
+#### Trigger Egress NetworkPolicy
+
+CronJob trigger pods run in the same namespace as the
+workflow and need their own egress NetworkPolicy to
+reach the engine pod. The CLI auto-generates a
+`{wf}-trigger-egress` NetworkPolicy during
+`tntc deploy` that allows:
+
+- **TCP 8080** egress to the engine pod (selected by
+  `app.kubernetes.io/name: {wf}`)
+- **UDP/TCP 53** egress to `kube-dns` for DNS
+  resolution
+
+This policy applies to pods with the label
+`tentacular.dev/role: trigger`. Without it, trigger
+pods are blocked by the namespace's default-deny
+egress policy and cannot reach the workflow service.
+
+The trigger NetworkPolicy is managed automatically by
+the CLI -- no manual authoring required. It is
+included in the manifests applied via `wf_apply` (MCP)
+and removed by `wf_remove` / `tntc undeploy`.
 
 #### Viewing CronJobs
 

@@ -501,6 +501,6 @@ A typical workflow:
 ```bash
 tntc test                           # fast feedback during development
 tntc test --pipeline                # validate full DAG data flow
-tntc test --live --env dev          # validate real deployment before promoting
+tntc test --live --env <target>     # validate real deployment before promoting
 tntc deploy -n production           # deploy auto-gates on live test
 ```
