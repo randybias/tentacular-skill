@@ -505,35 +505,65 @@ Edit code → tntc deploy (ConfigMap update + rollout) = ~5-10s
 
 The ConfigMap update is instant (YAML over HTTP), and the rollout restart triggers a pod restart without re-pulling the image.
 
+## Cluster Bootstrap
+
+```bash
+tntc cluster install
+```
+
+Bootstraps the tentacular-mcp server and module proxy
+in the target cluster. This is the **only** `tntc`
+command that communicates directly with the Kubernetes
+API. All subsequent commands route through MCP.
+
+### What It Does
+
+1. Creates the `tentacular-system` namespace
+2. Generates a bearer token for MCP authentication
+3. Deploys the MCP server (ServiceAccount, ClusterRole,
+   ClusterRoleBinding, Secret, Deployment, Service)
+4. Optionally deploys the esm.sh module proxy
+5. Waits for the MCP server to become healthy
+6. Saves the MCP endpoint and token to
+   `~/.tentacular/config.yaml`
+
+### Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--namespace` | `tentacular-system` | Namespace to install into |
+| `--image` | `ghcr.io/randybias/tentacular-mcp:latest` | MCP server image |
+| `--module-proxy` | `true` | Install esm.sh module proxy |
+| `--proxy-storage` | `emptydir` | Module proxy cache: `emptydir` or `pvc` |
+| `--proxy-pvc-size` | `5Gi` | PVC size (when storage=pvc) |
+| `--proxy-image` | `ghcr.io/esm-dev/esm.sh:v136` | Module proxy image |
+| `--wait` | `120s` | Timeout for MCP readiness |
+
 ## Cluster Check
 
 ```bash
 tntc cluster check
 ```
 
-Runs preflight validation to ensure the cluster is ready for deployment.
+Runs preflight validation via the MCP server to ensure
+the cluster is ready for deployment.
 
 ### Checks Performed
 
 - Kubernetes API reachability
 - Target namespace exists
 - gVisor RuntimeClass is available
-- RBAC permissions (including `batch/cronjobs` and `batch/jobs` for cron triggers)
-
-When run standalone (`tntc cluster check`), it also verifies the `<workflow-name>-secrets` Secret exists. During `tntc deploy`, the secret existence check is skipped when local secrets (`.secrets/` or `.secrets.yaml`) are present, since they will be auto-provisioned in the same deploy. This prevents first-deploy failures where the secret doesn't exist yet.
-
-Preflight checks run automatically during `tntc deploy`. Failures abort the deploy with remediation instructions.
+- RBAC permissions
 
 ### Flags
 
 | Flag | Description |
 |------|-------------|
-| `--fix` | Auto-create namespace and apply basic RBAC if missing |
 | `-n` / `--namespace` | Target namespace to check (default: `default`) |
 | `-o` / `--output` | Output format: `text` or `json` |
 
 ```bash
-tntc cluster check --fix -n production
+tntc cluster check -n production
 ```
 
 Output format:
@@ -542,15 +572,15 @@ Output format:
   ✓ Kubernetes API reachable
   ✓ Namespace "production" exists
   ✓ gVisor RuntimeClass available
-  ✗ Secret "my-workflow-secrets" not found
-    -> Create secret: kubectl create secret generic my-workflow-secrets -n production
 
 ✓ Cluster is ready for deployment
 ```
 
 ## Operations
 
-Post-deploy commands for managing workflows without kubectl.
+Post-deploy commands for managing workflows. All operations
+route through the MCP server -- no direct kubeconfig access
+required.
 
 ### List Deployed Workflows
 
@@ -574,7 +604,7 @@ tntc status my-workflow -n production
 tntc status my-workflow -n production --detail
 ```
 
-Basic status shows readiness and replica count. `--detail` adds image, runtime class, resource limits, service endpoint, pod statuses, and recent K8s events.
+Basic status shows readiness and replica count. `--detail` adds pods and K8s events.
 
 ### Trigger a Workflow
 
@@ -583,17 +613,19 @@ tntc run my-workflow -n production
 tntc run my-workflow -n production --timeout 60s
 ```
 
-Creates a temporary curl pod that POSTs to the workflow's ClusterIP service. The curl command includes `--retry 5 --retry-connrefused --retry-delay 1` to handle the kube-router NetworkPolicy ipset sync race (new pods may not be in the ingress allowlist immediately). Status messages go to stderr; the JSON result goes to stdout (pipe-friendly).
+The MCP server creates an ephemeral curl pod in-cluster that POSTs to the workflow's ClusterIP service. The curl command includes `--retry 5 --retry-connrefused --retry-delay 1` to handle the kube-router NetworkPolicy ipset sync race. Status messages go to stderr; the JSON result goes to stdout (pipe-friendly).
 
 ### View Logs
 
 ```bash
 tntc logs my-workflow -n production
 tntc logs my-workflow -n production --tail 50
-tntc logs my-workflow -n production -f
 ```
 
-Shows logs from the first Running pod. `--tail` controls how many recent lines (default 100). `-f` streams logs in real time until interrupted.
+Returns a snapshot of recent log lines via MCP. `--tail` controls how many lines (default 100).
+
+> **Note:** `--follow` is not supported through MCP.
+> For real-time log streaming, use `kubectl logs -f`.
 
 ### Remove a Workflow
 
@@ -602,19 +634,22 @@ tntc undeploy my-workflow -n production
 tntc undeploy my-workflow -n production --yes
 ```
 
-Deletes the Service, Deployment, Secret (`<name>-secrets`), ConfigMap (`<name>-code`), and all CronJobs matching the workflow's labels. Prompts for confirmation unless `--yes` is passed. Resources that don't exist are silently skipped.
+Removes all resources associated with the workflow via MCP. Prompts for confirmation unless `--yes` is passed.
 
 ### Full Lifecycle (No kubectl)
 
 ```bash
+# Bootstrap (one-time per cluster)
+tntc cluster install
+
 # Initial setup: validate and build engine image (one time)
 tntc validate my-workflow
 tntc build my-workflow -r my-registry.com --push
 
-# Deploy workflow code (repeatable, fast)
+# Deploy workflow code (repeatable, fast, via MCP)
 tntc deploy my-workflow -n production --image my-registry.com/tentacular-engine:latest
 
-# Operations
+# Operations (all via MCP)
 tntc list -n production
 tntc status my-workflow -n production --detail
 tntc run my-workflow -n production

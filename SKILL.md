@@ -29,6 +29,26 @@ If `tntc version` reports `dev (commit none, built unknown)`, the binary was bui
 
 > **Minimum required version:** Check `tntc version` output. If the skill specifies a minimum version and the installed binary reports an older tag, re-run the install script with `TNTC_VERSION=<tag>`.
 
+### MCP Server Bootstrap
+
+Before deploying workflows, the MCP server must be
+installed in the target cluster. This is a one-time
+bootstrap step:
+
+```bash
+tntc cluster install
+```
+
+This deploys the tentacular-mcp server and module proxy
+into the `tentacular-system` namespace, generates a
+bearer token, and saves the MCP endpoint and token to
+`~/.tentacular/config.yaml`. All subsequent `tntc`
+commands automatically route through MCP.
+
+`tntc cluster install` is the **only** command that
+communicates directly with the Kubernetes API. All other
+cluster operations go through the MCP server.
+
 ---
 
 ## Tentacles: Production Workflow Best Practice
@@ -77,40 +97,33 @@ working copy lives in tentacles.
 
 ## Querying Running Workflows
 
-`tntc list` does **not** support `--env`. To list
-deployed workflows, pass the `KUBECONFIG` and namespace
-explicitly:
+All cluster operations route through the MCP server.
+Once the MCP server is installed (`tntc cluster install`),
+commands like `list`, `status`, `logs`, `run`, and
+`undeploy` work without `KUBECONFIG` or direct K8s access:
 
 ```bash
-# Dev environment (kubeconfig from ~/.tentacular/config.yaml env.dev.kubeconfig)
-KUBECONFIG=<env.dev.kubeconfig> tntc list -n <env.dev.namespace>
-
-# Prod environment
-KUBECONFIG=<env.prod.kubeconfig> tntc list -n <env.prod.namespace>
+tntc list -n <namespace>
+tntc status <workflow-name> -n <namespace>
+tntc logs <workflow-name> -n <namespace>
+tntc run <workflow-name> -n <namespace>
 ```
 
-The kubeconfig path and namespace for each environment come from
-`~/.tentacular/config.yaml` (or `.tentacular/config.yaml`).
-Check that file for the values to use.
+The MCP endpoint and token are auto-configured by
+`tntc cluster install` and saved to
+`~/.tentacular/config.yaml`. No per-command MCP URL
+flags are needed.
 
-Similarly for status, logs, run, undeploy:
-
-```bash
-KUBECONFIG=<env.prod.kubeconfig> tntc status <workflow-name> -n <env.prod.namespace>
-KUBECONFIG=<env.prod.kubeconfig> tntc logs   <workflow-name> -n <env.prod.namespace>
-```
-
-The `--env` flag is only supported on `tntc deploy` and
-`tntc test --live`. All other commands require explicit
-`-n` + `KUBECONFIG`.
+> **Note:** `tntc logs --follow` is not supported through
+> MCP (snapshot only). Use `kubectl logs -f` for streaming.
 
 ## Querying Workflows via MCP
 
-The tentacular MCP server exposes two discovery tools for
-querying deployed workflows directly from an AI agent
-session. These tools read Kubernetes Deployment metadata
-and workflow ConfigMaps -- no `tntc` CLI or `KUBECONFIG`
-needed.
+The tentacular MCP server exposes discovery and execution
+tools for interacting with deployed workflows directly
+from an AI agent session. These tools read Kubernetes
+Deployment metadata and workflow ConfigMaps -- no `tntc`
+CLI or `KUBECONFIG` needed.
 
 ### wf_list
 
@@ -145,6 +158,30 @@ Returns: `name`, `namespace`, `version`, `owner`, `team`,
 
 Node names and trigger descriptions are enriched from the
 workflow ConfigMap (`<name>-code`) when available.
+
+### wf_run
+
+Triggers a deployed workflow by creating an ephemeral
+in-cluster curl pod that POSTs to the workflow's `/run`
+endpoint. Returns the JSON output.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace of the workflow. |
+| `name` | string | Yes | Workflow deployment name. |
+| `input` | JSON | No | Optional JSON input payload. |
+| `timeout_seconds` | int | No | Timeout (default 120, max 600). |
+
+Returns: `name`, `namespace`, `output` (raw JSON),
+`duration_ms`, `pod_name`.
+
+### proxy_status
+
+Checks the installation and readiness status of the
+in-cluster module proxy (esm.sh).
+
+Returns: `installed`, `ready`, `namespace`, `image`,
+`storage`.
 
 ---
 
@@ -199,11 +236,17 @@ The key benefits of Tentacular are:
   - Testing is baked into the workflow development process
     prior to pushing to production
 
-It is composed of two key components;
+It is composed of three key components;
 
-- **Go CLI** (`cmd/tntc/`, `pkg/`) -- manages the
-  workflow lifecycle: scaffold, validate, dev, test,
-  build, deploy.
+- **Go CLI** (`cmd/tntc/`, `pkg/`) -- the data plane.
+  Manages the workflow lifecycle: scaffold, validate,
+  dev, test, build, deploy. After bootstrap, all cluster
+  operations route through the MCP server.
+- **MCP Server** (`tentacular-mcp`) -- the control plane.
+  An in-cluster MCP server that proxies all K8s
+  operations through scoped RBAC. The CLI communicates
+  with the cluster exclusively through MCP after the
+  initial `tntc cluster install` bootstrap.
 - **Deno/TypeScript Engine** (`engine/`) -- executes
   workflows as DAGs. Compiles workflow.yaml into
   topologically sorted stages, loads TypeScript node
@@ -382,7 +425,11 @@ config:
 ## Common Workflow
 
 ```
-tntc configure --registry reg.io   # one-time setup
+# Bootstrap (one-time per cluster)
+tntc cluster install               # deploy MCP server + module proxy
+tntc configure --registry reg.io   # one-time registry setup
+
+# Workflow development
 tntc init my-workflow              # scaffold directory
 cd my-workflow
 # edit nodes/*.ts and workflow.yaml
@@ -393,8 +440,10 @@ tntc dev                           # local dev server
 tntc test                          # run node tests
 tntc test --pipeline               # run full DAG e2e
 tntc build                         # build container image
-tntc cluster check --fix           # verify K8s cluster
-tntc deploy                        # deploy to cluster
+
+# Deploy and operate (all via MCP)
+tntc cluster check                 # verify K8s cluster via MCP
+tntc deploy                        # deploy to cluster via MCP
 tntc status my-workflow            # check deploy status
 tntc list                          # list all workflows
 tntc run my-workflow               # trigger workflow
@@ -444,6 +493,22 @@ environment config > project config > user config >
 defaults. See
 [references/deployment-guide.md](references/deployment-guide.md)
 for full environment configuration details.
+
+### MCP Configuration
+
+The MCP server connection is configured automatically
+by `tntc cluster install`. Manual configuration:
+
+```yaml
+# ~/.tentacular/config.yaml
+mcp:
+  endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
+  token_path: ~/.tentacular/mcp-token
+```
+
+Environment variables (override config file):
+- `TNTC_MCP_ENDPOINT` -- MCP server URL
+- `TNTC_MCP_TOKEN` -- bearer token value
 
 ## Agent Workflow Guide
 
