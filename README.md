@@ -4,15 +4,11 @@ OpenClaw agent skill for [Tentacular](https://github.com/randybias/tentacular) â
 
 ## What this is
 
-This skill teaches an AI agent (running inside [OpenClaw](https://openclaw.ai)) how to use the `tntc` CLI to build, test, and deploy TypeScript workflow DAGs on Kubernetes.
+This skill teaches an AI agent that supports [AgentSkills](https://agentskills.io) how to use the Tentacular CLI to build, test, and deploy secure TypeScript workflow DAGs on Kubernetes.
 
 ## Install
 
-```sh
-clawhub install tentacular-skill
-```
-
-Or manually copy into your OpenClaw workspace:
+Manually copy into your OpenClaw workspace:
 
 ```sh
 cp -r . ~/.openclaw/workspace/skills/tentacular
