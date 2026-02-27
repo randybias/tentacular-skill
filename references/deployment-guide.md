@@ -486,7 +486,7 @@ The engine-only image architecture enables rapid code iteration without Docker r
 ### What Happens on Deploy
 
 - `GenerateCodeConfigMap()` reads current workflow.yaml and nodes/*.ts
-- ConfigMap is created/updated via K8s API
+- ConfigMap is created/updated via MCP
 - `RolloutRestart()` patches the Deployment to trigger a pod restart
 - New pods mount the updated ConfigMap at `/app/workflow`
 - Engine loads the new workflow code at startup

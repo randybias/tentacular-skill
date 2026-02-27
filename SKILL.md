@@ -49,6 +49,85 @@ commands automatically route through MCP.
 communicates directly with the Kubernetes API. All other
 cluster operations go through the MCP server.
 
+## Architecture
+
+Tentacular is a *secure* workflow build and execution
+system designed for AI agents. Its purpose is to allow
+an AI agent (you) to easily build repeatable and durable
+workflows (pipelines). Arbitrary workflows can be built
+dynamically by an agent, reused or replaced as necessary,
+and deployed onto Kubernetes clusters to be triggered
+manually or by various hooks (cron, webhook, etc).
+
+Every tentacular agentic workflow is deployed in a tightly
+constrained sandbox, without a tool chain or other
+ancillary systems. Only what is needed is deployed into a
+production runtime ([gVisor](https://gvisor.dev/)). Each
+workflow's networking and other access requirements are
+declared in the workflow contract, which drives automatic
+generation of Kubernetes NetworkPolicy to lockdown the
+workflow's production network access.
+
+It is composed of three key components:
+
+- **Go CLI** (`cmd/tntc/`, `pkg/`) -- the data plane.
+  Manages the workflow lifecycle: scaffold, validate,
+  dev, test, build, deploy. After bootstrap, all cluster
+  operations route through the MCP server.
+- **MCP Server** (`tentacular-mcp`) -- the control plane.
+  An in-cluster MCP server that proxies all K8s
+  operations through scoped RBAC. The CLI communicates
+  with the cluster exclusively through MCP after the
+  initial `tntc cluster install` bootstrap.
+- **Deno/TypeScript Engine** (`engine/`) -- executes
+  workflows as DAGs. Compiles workflow.yaml into
+  topologically sorted stages, loads TypeScript node
+  modules, runs them with a Context providing dependency
+  resolution, fetch, logging, config, and secrets.
+  Exposes HTTP triggers (`POST /run`, `GET /health`).
+
+The key benefits of Tentacular are:
+
+- Hardened execution environment for production workloads
+  - Attack surface is absolute minimum as there is no
+    non-essential code
+  - Runs on [gVisor](https://gvisor.dev/) by default
+- Agent-friendly
+  - Build workflows using plain english,
+    but in a repeatable and manageable manner
+  - Full tentacular SKILL to help manage the workflow
+    end-to-end
+  - Testing is baked into the workflow development process
+    prior to pushing to production
+
+## CLI vs MCP: When to Use Which
+
+Both the CLI and MCP tools require `tntc cluster install`
+to have been run first (except for purely local commands
+like `validate` and `test`).
+
+**Use `tntc` CLI** for the full lifecycle and
+terminal/CI operations:
+- Scaffold, validate, test, build, deploy
+- Local development (`tntc dev`)
+- CI/CD pipelines
+- Any operation that reads/writes local files
+
+**Use MCP tools directly** from an AI agent session for
+discovery, execution, and observability without shelling
+out:
+- List and inspect deployed workflows
+- Trigger workflow runs
+- View logs, pods, events, jobs
+- Check cluster health and security posture
+- Manage namespaces and credentials
+
+**Decision tree:**
+- Building or developing a workflow? **CLI**
+- Querying or operating on the cluster? **MCP tools**
+- Bootstrap or initial setup? **CLI**
+- Agent session needing cluster info? **MCP tools**
+
 ---
 
 ## Tentacles: Production Workflow Best Practice
@@ -117,15 +196,20 @@ flags are needed.
 > **Note:** `tntc logs --follow` is not supported through
 > MCP (snapshot only). Use `kubectl logs -f` for streaming.
 
-## Querying Workflows via MCP
+## MCP Tools Reference
 
-The tentacular MCP server exposes discovery and execution
-tools for interacting with deployed workflows directly
-from an AI agent session. These tools read Kubernetes
-Deployment metadata and workflow ConfigMaps -- no `tntc`
-CLI or `KUBECONFIG` needed.
+The tentacular MCP server exposes 31 tools organized into
+11 groups. These tools are available directly from an AI
+agent session -- no `tntc` CLI or `KUBECONFIG` needed.
 
-### wf_list
+Agents can discover all tools and their full parameter
+schemas via the MCP `tools/list` method. The sections
+below provide detailed tables for the most commonly used
+tools and a compact reference for the rest.
+
+### Workflow Discovery
+
+#### wf_list
 
 Lists all tentacular-managed workflow deployments. Filters
 by label selector `app.kubernetes.io/managed-by=tentacular`.
@@ -140,7 +224,7 @@ Returns an array of workflow entries, each with:
 `name`, `namespace`, `version`, `owner`, `team`,
 `environment`, `ready`, `age`.
 
-### wf_describe
+#### wf_describe
 
 Returns detailed information about a single workflow
 deployment, including metadata annotations, replica
@@ -159,7 +243,9 @@ Returns: `name`, `namespace`, `version`, `owner`, `team`,
 Node names and trigger descriptions are enriched from the
 workflow ConfigMap (`<name>-code`) when available.
 
-### wf_run
+### Workflow Execution
+
+#### wf_run
 
 Triggers a deployed workflow by creating an ephemeral
 in-cluster curl pod that POSTs to the workflow's `/run`
@@ -175,7 +261,97 @@ endpoint. Returns the JSON output.
 Returns: `name`, `namespace`, `output` (raw JSON),
 `duration_ms`, `pod_name`.
 
-### proxy_status
+### Workflow Lifecycle
+
+#### wf_status
+
+Check deployment status of a workflow.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace of the workflow. |
+| `name` | string | Yes | Workflow deployment name. |
+| `detail` | bool | No | Include pods and K8s events. |
+
+#### wf_apply / wf_remove
+
+`wf_apply` deploys workflow manifests (ConfigMap,
+Deployment, Service, NetworkPolicy, CronJobs).
+`wf_remove` removes all resources for a named workflow.
+Both require `namespace` and `name`.
+
+### Workflow Observability
+
+#### wf_logs
+
+Retrieve pod logs for a deployed workflow.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace of the workflow. |
+| `name` | string | Yes | Workflow deployment name. |
+| `tail` | int | No | Number of lines (default 100). |
+| `container` | string | No | Container name (default: `engine`). |
+
+#### wf_pods / wf_events / wf_jobs
+
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `wf_pods` | List pods in a workflow deployment | `namespace`, `name` |
+| `wf_events` | List K8s events in a namespace | `namespace` |
+| `wf_jobs` | List jobs and cronjobs in a namespace | `namespace` |
+
+### Namespace Management
+
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `ns_create` | Create managed namespace with quotas and RBAC | `name` |
+| `ns_delete` | Delete a managed namespace | `name` |
+| `ns_get` | Get namespace details including quota and limits | `name` |
+| `ns_list` | List all managed namespaces | (none) |
+
+### Credentials
+
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `cred_issue_token` | Issue short-lived token for workflow SA | `namespace`, `name` |
+| `cred_kubeconfig` | Generate kubeconfig for workflow SA | `namespace`, `name` |
+| `cred_rotate` | Rotate workflow service account credentials | `namespace`, `name` |
+
+### Cluster Operations
+
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `cluster_preflight` | Run preflight checks (API, namespace, RBAC, gVisor) | `namespace` |
+| `cluster_profile` | Profile cluster: K8s version, nodes, runtime, CNI, storage | (none) |
+
+### Cluster Health
+
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `health_nodes` | List nodes with readiness and capacity | (none) |
+| `health_ns_usage` | Check namespace resource usage vs quotas | `namespace` |
+| `health_cluster_summary` | Aggregate cluster-wide CPU/memory/pods | (none) |
+
+### Security Audit
+
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `audit_rbac` | Audit RBAC: wildcards, sensitive access | `namespace` |
+| `audit_netpol` | Audit network policies: default-deny, egress | `namespace` |
+| `audit_psa` | Audit Pod Security Admission configuration | `namespace` |
+
+### gVisor Runtime Sandbox
+
+| Tool | Description | Key Parameters |
+|------|-------------|----------------|
+| `gvisor_check` | Check if gVisor RuntimeClass is available | (none) |
+| `gvisor_apply` | Apply gVisor annotation to namespace | `namespace` |
+| `gvisor_verify` | Verify gVisor sandboxing with test pod | `namespace` |
+
+### Module Proxy
+
+#### proxy_status
 
 Checks the installation and readiness status of the
 in-cluster module proxy (esm.sh).
@@ -184,79 +360,6 @@ Returns: `installed`, `ready`, `namespace`, `image`,
 `storage`.
 
 ---
-
-Tentacular is a *secure* workflow build and execution
-system designed for AI agents. It's purpose is to allow
-an AI agent (you) to easily build repeatable and durable
-workflows (pipelines). Arbitrary workflows can be built
-dynamically by an agent, reused or replaced as necessary,
-and deployed onto Kubernetes clusters to be triggered
-manually or by various hooks (cron, webhook, etc).
-Tentacular differs from statically built, systems such as
-n8n, which has specific nodes in a graph structure, where
-each node has significant functionality, much of which you
-may not use. It also differs from monolithic agentic
-systems and frameworks like langgraph/langchain and
-Pydantic AI, in that all of the code in a workflow is
-meant to be disposable and workflows are custom built to
-need every time (or reused and iterated upon).
-
-Every tentacular agentic workflow is deployed in a tightly
-constrained sandbox, without a tool chain or other
-ancillary systems. Only what is needed is deployed into a
-production runtime ([gVisor](https://gvisor.dev/)). In addition, each
-workflow's networking and other access requirements are
-declared in the workflow contract, which drives automatic
-generation of Kubernetes NetworkPolicy to lockdown the
-workflow's production network access.
-
-In tentacular, every node in the DAG is created at build
-time by (you) the coding agent, tested end to end in a
-development environment with real credentials, and then
-shipped to production after it has been validated. The
-nodes and graph are shipped as a set of Typescript code
-that executes on a single pod in a Kubernetes cluster.
-
-The sky is the limit on what you can build. From a simple
-word counter workflow, to a workflow that makes multiple
-API, LLM, and MCP server calls. There are no constraints
-other than what you can imagine.
-
-The key benefits of Tentacular are:
-
-- Hardened execution environment for production workloads
-  - Attack surface is absolute minimum as there is no
-    non-essential code
-  - Runs on [gVisor](https://gvisor.dev/) by default
-- Agent-friendly
-  - Build workflows using plain english,
-    but in a repeatable and manageable manner
-  - Full tentacular SKILL to help manage the workflow
-    end-to-end
-  - Testing is baked into the workflow development process
-    prior to pushing to production
-
-It is composed of three key components;
-
-- **Go CLI** (`cmd/tntc/`, `pkg/`) -- the data plane.
-  Manages the workflow lifecycle: scaffold, validate,
-  dev, test, build, deploy. After bootstrap, all cluster
-  operations route through the MCP server.
-- **MCP Server** (`tentacular-mcp`) -- the control plane.
-  An in-cluster MCP server that proxies all K8s
-  operations through scoped RBAC. The CLI communicates
-  with the cluster exclusively through MCP after the
-  initial `tntc cluster install` bootstrap.
-- **Deno/TypeScript Engine** (`engine/`) -- executes
-  workflows as DAGs. Compiles workflow.yaml into
-  topologically sorted stages, loads TypeScript node
-  modules, runs them with a Context providing dependency
-  resolution, fetch, logging, config, and secrets.
-  Exposes HTTP triggers (`POST /run`, `GET /health`).
-
-Workflows live in a directory containing a `workflow.yaml`
-and a `nodes/` directory of TypeScript files. Each node is
-a default-exported async function.
 
 For full CLI reference, read [references/cli.md](references/cli.md).
 
