@@ -9,6 +9,7 @@ Complete reference for the Tentacular `workflow.yaml` format.
 | `name` | string | Yes | Workflow name. Must be kebab-case: `^[a-z][a-z0-9]*(-[a-z0-9]+)*$` |
 | `version` | string | Yes | Semver format: `MAJOR.MINOR` (e.g., `"1.0"`, `"2.3"`). Regex: `^[0-9]+\.[0-9]+$` |
 | `description` | string | No | Human-readable description |
+| `metadata` | object | No | Optional descriptive metadata for MCP reporting. See [Metadata](#metadata). |
 | `triggers` | array | Yes | At least one trigger. Defines how the workflow is invoked. |
 | `contract` | object | Yes | Contract declaration. Must include `version` and `dependencies`. See [Contract Reference](contract.md). |
 | `nodes` | map | Yes | At least one node. Keys are node names matching `^[a-z][a-z0-9_-]*$`. |
@@ -150,6 +151,29 @@ deployment:
 
 Namespace resolution order: CLI `-n` flag > `workflow.yaml deployment.namespace` > config file default > `default`.
 
+## Metadata
+
+Optional descriptive metadata used for MCP discovery and reporting. When present, metadata fields are propagated to Kubernetes Deployment and Service annotations under the `tentacular.dev/` prefix during `tntc deploy`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `owner` | string | Owner or team lead responsible for the workflow. Maps to `tentacular.dev/owner` annotation. |
+| `team` | string | Team that owns the workflow. Maps to `tentacular.dev/team` annotation. |
+| `tags` | array of strings | Freeform tags for categorization and filtering. Stored as comma-separated `tentacular.dev/tags` annotation. |
+| `environment` | string | Target environment label (e.g., `dev`, `staging`, `production`). Maps to `tentacular.dev/environment` annotation. |
+
+```yaml
+metadata:
+  owner: platform-team
+  team: mcp-tracking
+  tags:
+    - production
+    - reporting
+  environment: dev
+```
+
+All fields are optional. The metadata block itself can be omitted entirely. MCP tools `wf_list` and `wf_describe` read these annotations from deployed Kubernetes resources to support filtering and discovery.
+
 ## Complete Annotated Example
 
 ```yaml
@@ -161,6 +185,15 @@ version: "1.0"
 
 # Optional human-readable description
 description: "Fetches open GitHub issues, summarizes them, and posts to Slack"
+
+# Optional metadata for MCP discovery and K8s annotations
+metadata:
+  owner: devtools-team
+  team: developer-experience
+  tags:
+    - reporting
+    - github
+  environment: production
 
 # How the workflow is triggered — at least one required
 triggers:

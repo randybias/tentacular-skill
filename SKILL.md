@@ -35,7 +35,7 @@ If `tntc version` reports `dev (commit none, built unknown)`, the binary was bui
 
 Production workflows (called **tentacles**) MUST be stored
 outside the tentacular repository. The repo contains only
-the tool (CLI + engine), skill, and example workflows.
+the tool (CLI + engine), and example workflows.
 Real workflows with secrets, credentials, and
 production-specific configuration belong in a separate
 local directory.
@@ -103,6 +103,48 @@ KUBECONFIG=<env.prod.kubeconfig> tntc logs   <workflow-name> -n <env.prod.namesp
 The `--env` flag is only supported on `tntc deploy` and
 `tntc test --live`. All other commands require explicit
 `-n` + `KUBECONFIG`.
+
+## Querying Workflows via MCP
+
+The tentacular MCP server exposes two discovery tools for
+querying deployed workflows directly from an AI agent
+session. These tools read Kubernetes Deployment metadata
+and workflow ConfigMaps -- no `tntc` CLI or `KUBECONFIG`
+needed.
+
+### wf_list
+
+Lists all tentacular-managed workflow deployments. Filters
+by label selector `app.kubernetes.io/managed-by=tentacular`.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | No | Namespace to filter. Empty = all tentacular namespaces. |
+| `owner` | string | No | Filter by `tentacular.dev/owner` annotation. |
+| `tag` | string | No | Filter by tag in `tentacular.dev/tags` annotation. |
+
+Returns an array of workflow entries, each with:
+`name`, `namespace`, `version`, `owner`, `team`,
+`environment`, `ready`, `age`.
+
+### wf_describe
+
+Returns detailed information about a single workflow
+deployment, including metadata annotations, replica
+status, node list, and trigger configuration.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace of the workflow. |
+| `name` | string | Yes | Workflow deployment name. |
+
+Returns: `name`, `namespace`, `version`, `owner`, `team`,
+`tags`, `environment`, `ready`, `replicas`,
+`ready_replicas`, `image`, `age`, `nodes`, `triggers`,
+`annotations` (all `tentacular.dev/*` annotations).
+
+Node names and trigger descriptions are enriched from the
+workflow ConfigMap (`<name>-code`) when available.
 
 ---
 
@@ -313,6 +355,11 @@ In Go, extra keys are stored in
 name: my-workflow
 version: "1.0"
 description: "A minimal workflow"
+
+# Optional: metadata for MCP discovery (wf_list / wf_describe)
+# metadata:
+#   owner: my-team
+#   tags: [dev]
 
 triggers:
   - type: manual
