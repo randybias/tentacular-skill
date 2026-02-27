@@ -43,8 +43,12 @@ implementation starts.
 1. Confirm the user's intent and expected outcome.
 2. Author the `contract.dependencies` block first.
 3. Derive secrets and network intent from the contract.
-4. Pre-validate the environment, credentials, and
-   connectivity.
+4. Pre-validate the Kubernetes environment using the tntc
+   CLI to be certain you understand what is possible.
+4. Pre-validate all other environment, credentials, and
+   connectivity, such as MCP/REST APIs, database connections,
+   messaging services, or any other dependencies that the
+   workflow requires BEFORE building the DAG.
 5. Define explicit dev-to-prod promotion gates.
 
 ### Step 1: Confirm User Intent (Do Not Assume)
@@ -131,12 +135,16 @@ is explicitly confirmed.
 
 ### Step 5: Pre-Validate Before Implementation Work
 
-Run lightweight checks before coding/deploying:
+Ensure the MCP server is bootstrapped, then run lightweight
+checks before coding/deploying:
 
 ```bash
-# Validate cluster targets
-tntc cluster check --fix -n <dev-namespace>
-tntc cluster check --fix -n <prod-namespace>
+# Ensure MCP server is installed (one-time per cluster)
+tntc cluster install
+
+# Validate cluster targets via MCP
+tntc cluster check -n <dev-namespace>
+tntc cluster check -n <prod-namespace>
 
 # Validate workflow spec and contract
 tntc validate <workflow-dir>
@@ -156,8 +164,8 @@ creates or modifies `.tentacular/config.yaml` (or
 `~/.tentacular/config.yaml`), it MUST display the full
 resulting config to the user for review before proceeding.
 The user needs to verify registry, namespace, environment
-names, kubeconfig paths, image references, and runtime
-class. Do not silently use an agent-generated config.
+names, MCP endpoint, image references, and runtime class.
+Do not silently use an agent-generated config.
 
 Also pre-validate critical credentials/connectivity where
 possible (without exposing secret values), for example:
@@ -309,55 +317,110 @@ for remediation steps.
 
 ## Common Gotchas for Agents
 
-1. **undeploy needs confirmation**: Always pass `-y`
+1. **MCP server must be installed**: All cluster
+   commands require a running MCP server. Run
+   `tntc cluster install` first. If MCP is not
+   configured, commands fail with:
+   `MCP server not configured; run tntc cluster install first`
+
+2. **undeploy needs confirmation**: Always pass `-y`
    in non-interactive scripts. Without it, the command
    blocks waiting for stdin.
 
-2. **Namespace must exist**: `deploy` does not create
-   namespaces. Create them first with `kubectl create
-   namespace <name>`.
+3. **Namespace must exist**: `deploy` does not create
+   namespaces. The MCP server's `ns_create` tool
+   handles namespace creation during deploy.
 
-3. **kubeconfig context**: When targeting multiple
-   clusters, use `--env` to switch contexts automatically.
-   Without `--env`, the CLI uses the current kubeconfig
-   context.
+4. **No --follow for logs via MCP**: `tntc logs`
+   returns a snapshot of recent log lines. Streaming
+   (`--follow`) is not supported through MCP. Use
+   `kubectl logs -f` for real-time streaming.
 
-4. **kind clusters**: Auto-detected by context name
+5. **kind clusters**: Auto-detected by context name
    prefix `kind-`. gVisor and imagePullPolicy are
    adjusted automatically. After `tntc build`, images
    are loaded into kind via `kind load docker-image`.
 
-5. **Secrets**: Local secrets come from
+6. **Secrets**: Local secrets come from
    `<workflow-dir>/.secrets.yaml`. The CLI generates a
    K8s Secret manifest from this file during deploy.
    If `.secrets/` directory exists, it takes precedence
    over `.secrets.yaml`.
 
-6. **Deploy gate**: When a `dev` environment is
+7. **Deploy gate**: When a `dev` environment is
    configured, `deploy` auto-runs a live test first.
    Use `--force` to skip. This only triggers when the
    CLI detects a dev environment in config.
 
-7. **Contract required**: All workflows need a
+8. **Contract required**: All workflows need a
    `contract` section (even if `dependencies: {}`).
    Deploy fails in strict mode without a valid
    contract. See [Contract Model](contract.md).
 
-8. **NetworkPolicy auto-generated**: `deploy`
+9. **NetworkPolicy auto-generated**: `deploy`
    generates NetworkPolicy from contract dependencies.
    Verify with `kubectl get networkpolicy` after
    deploy. Use `contract.networkPolicy.additionalEgress`
    for edge cases not derivable from dependencies.
 
-9. **Drift detection**: `tntc test` compares runtime
-   behavior against contract declarations. Direct
-   `ctx.fetch()` or `ctx.secrets` usage is flagged
-   as a contract violation. Use `ctx.dependency()`.
+10. **Drift detection**: `tntc test` compares runtime
+    behavior against contract declarations. Direct
+    `ctx.fetch()` or `ctx.secrets` usage is flagged
+    as a contract violation. Use `ctx.dependency()`.
 
-10. **OpenAI `max_completion_tokens` vs `max_tokens`**:
+11. **OpenAI `max_completion_tokens` vs `max_tokens`**:
     Newer OpenAI models (gpt-5 and later) require
     `max_completion_tokens` in the request body. The
     legacy `max_tokens` parameter returns a 400 error.
     Always use `max_completion_tokens` for gpt-5+.
     See [Node Development](node-development.md) for
     the full pattern.
+
+## CLI-to-MCP Handoff Pattern
+
+The CLI delegates all cluster operations to the MCP
+server. The handoff pattern:
+
+1. **Bootstrap** (`tntc cluster install`): The only
+   command that talks directly to the K8s API. Deploys
+   the MCP server, generates a bearer token, and saves
+   the MCP endpoint and token to
+   `~/.tentacular/config.yaml`.
+
+2. **All other commands**: Resolve the MCP client from
+   config (env vars > project config > user config).
+   If MCP is not configured, commands fail with an
+   actionable error message.
+
+3. **Error handling**: MCP errors include hints:
+   - Server unavailable: check MCP deployment
+   - Unauthorized: regenerate token
+   - Forbidden: namespace guard rejection
+
+## Zero-Admin Deploy Recipe
+
+After the one-time `tntc cluster install`, workflows
+can be deployed without admin kubeconfig access:
+
+```bash
+# One-time bootstrap (requires admin kubeconfig)
+tntc cluster install
+
+# From here on, no admin kubeconfig needed:
+tntc validate ~/workspace/tentacles/my-workflow
+tntc test ~/workspace/tentacles/my-workflow
+tntc build ~/workspace/tentacles/my-workflow --push
+tntc deploy ~/workspace/tentacles/my-workflow
+tntc run my-workflow -n <namespace>
+tntc status my-workflow -n <namespace>
+tntc logs my-workflow -n <namespace>
+```
+
+For CI/CD pipelines, set environment variables instead
+of config files:
+
+```bash
+export TNTC_MCP_ENDPOINT=http://tentacular-mcp.tentacular-system.svc:8080
+export TNTC_MCP_TOKEN=<token>
+tntc deploy --env production
+```

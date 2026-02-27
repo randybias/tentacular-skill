@@ -2,6 +2,16 @@
 
 Complete reference for `tntc` commands, flags, and configuration.
 
+## Architecture
+
+`tntc cluster install` is the **only** command that
+communicates directly with the Kubernetes API. It
+deploys the tentacular-mcp server and saves connection
+details to `~/.tentacular/config.yaml`. All other
+cluster-facing commands (`deploy`, `run`, `list`,
+`status`, `logs`, `undeploy`, `audit`, `cluster check`)
+route through the MCP server.
+
 ## Command Reference
 
 | Command | Usage | Key Flags | Description |
@@ -11,18 +21,18 @@ Complete reference for `tntc` commands, flags, and configuration.
 | `dev` | `tntc dev [dir]` | `-p` port (default 8080) | Start Deno engine locally with hot-reload (`--watch`). POST /run triggers execution |
 | `test` | `tntc test [dir][/<node>]` | `--pipeline`, `--live`, `--env`, `--keep`, `--timeout`, `--warn` | Run node-level tests from fixtures, full pipeline test with `--pipeline`, or live cluster test with `--live`. `--warn` downgrades contract violations to warnings. |
 | `build` | `tntc build [dir]` | `-t` tag, `-r` registry, `--push`, `--platform` | Generate Dockerfile (distroless Deno base), build container image via `docker build` |
-| `deploy` | `tntc deploy [dir]` | `-n` namespace, `--env`, `--image`, `--runtime-class`, `--force`, `--verify`, `--warn` | Generate K8s manifests and apply to cluster. `--env` targets a named environment (context, namespace, image). Auto-gates on live test if dev env configured; `--force` skips. `--warn` downgrades contract violations to warnings. Namespace resolves: CLI > env > workflow.yaml > config > default |
-| `audit` | `tntc audit <workflow-dir>` | `-n` namespace, `-o` json | Audit deployed resources against contract expectations |
+| `deploy` | `tntc deploy [dir]` | `-n` namespace, `--env`, `--image`, `--runtime-class`, `--force`, `--verify`, `--warn` | Generate K8s manifests and apply via MCP. `--env` targets a named environment (context, namespace, image). Auto-gates on live test if dev env configured; `--force` skips. `--warn` downgrades contract violations to warnings. Namespace resolves: CLI > env > workflow.yaml > config > default |
+| `audit` | `tntc audit <workflow-dir>` | `-n` namespace, `-o` json | Audit deployed resources against contract expectations via MCP |
 | `configure` | `tntc configure` | `--registry`, `--namespace`, `--runtime-class`, `--project` | Set default config (user-level or project-level) |
 | `secrets check` | `tntc secrets check [dir]` | | Check secrets provisioning against node requirements |
 | `secrets init` | `tntc secrets init [dir]` | `--force` | Initialize .secrets.yaml from .secrets.yaml.example |
-| `status` | `tntc status <name>` | `-n` namespace, `-o` json, `--detail` | Check deployment status in K8s; `--detail` shows pods, events, resources |
-| `run` | `tntc run <name>` | `-n` namespace, `--timeout` | Trigger a deployed workflow and return JSON result |
-| `logs` | `tntc logs <name>` | `-n` namespace, `-f`/`--follow`, `--tail` | View workflow pod logs; `-f` streams in real time |
-| `list` | `tntc list` | `-n` namespace, `-o` json | List all deployed workflows with version, status, and age |
-| `undeploy` | `tntc undeploy <name>` | `-n` namespace, `--yes`/`-y` | Remove a deployed workflow (Service, Deployment, Secret, CronJobs). Use `-y` to skip confirmation in scripts. Note: ConfigMap `<name>-code` is not deleted. |
-| `cluster check` | `tntc cluster check` | `--fix`, `-n` namespace | Preflight validation of cluster readiness; `--fix` auto-remediates |
-| `cluster profile` | `tntc cluster profile` | `--env`, `--all`, `--output markdown\|json`, `--save`, `--force` | Capability snapshot for workflow design: CNI, CSI, RuntimeClasses, extensions, quotas, PSA, agent guidance. Auto-runs on `tntc configure`. `--save` writes to `~/.tentacular/envprofiles/` (user config) or `.tentacular/envprofiles/` (project config). |
+| `status` | `tntc status <name>` | `-n` namespace, `-o` json, `--detail` | Check deployment status via MCP; `--detail` shows pods, events |
+| `run` | `tntc run <name>` | `-n` namespace, `--timeout` | Trigger a deployed workflow via MCP and return JSON result |
+| `logs` | `tntc logs <name>` | `-n` namespace, `--tail` | View workflow pod logs via MCP (snapshot only; `--follow` not supported through MCP, use `kubectl logs -f`) |
+| `list` | `tntc list` | `-n` namespace, `-o` json | List all deployed workflows via MCP with version, status, and age |
+| `undeploy` | `tntc undeploy <name>` | `-n` namespace, `--yes`/`-y` | Remove a deployed workflow via MCP. Use `-y` to skip confirmation. |
+| `cluster install` | `tntc cluster install` | `--namespace`, `--image`, `--module-proxy`, `--proxy-storage`, `--proxy-pvc-size`, `--proxy-image`, `--wait` | Bootstrap: deploy MCP server and module proxy to cluster. The ONLY command using direct K8s API. Saves MCP endpoint and token to `~/.tentacular/config.yaml`. |
+| `cluster check` | `tntc cluster check` | `-n` namespace, `-o` json | Preflight validation of cluster readiness via MCP |
 | `visualize` | `tntc visualize [dir]` | `--rich`, `--write` | Generate Mermaid diagram of the workflow DAG. `--rich` adds dependency graph, derived secrets, and network intent. `--write` writes `workflow-diagram.md` and `contract-summary.md` to the workflow directory. |
 
 ## Global Flags
@@ -45,24 +55,22 @@ CLI `-n`.
 - `.tentacular/config.yaml` (project-level)
 - Project overrides user.
 
-### Create Config From Scratch
+### Bootstrap Config (Recommended)
 
-For this repository, the canonical public engine image is:
-`ghcr.io/randybias/tentacular-engine:latest`.
-
-Use this bootstrap flow:
-
-```bash
-mkdir -p .tentacular
-cp .tentacular/config.yaml.example .tentacular/config.yaml
-```
-
-Then set at least a registry and environment image:
+Run `tntc cluster install` to bootstrap the MCP server.
+This auto-configures `~/.tentacular/config.yaml` with
+the MCP endpoint and token. Then set a registry and
+environment image:
 
 ```yaml
 registry: ghcr.io/randybias
 namespace: default
 runtime_class: gvisor
+
+# Auto-populated by tntc cluster install:
+mcp:
+  endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
+  token_path: ~/.tentacular/mcp-token
 
 environments:
   prod:
@@ -70,39 +78,48 @@ environments:
     runtime_class: gvisor
 ```
 
+For this repository, the canonical public engine image is:
+`ghcr.io/randybias/tentacular-engine:latest`.
+
 Without an explicit environment `image`, deploy/test-live may
 fall back to `<workflow-dir>/.tentacular/base-image.txt` or
 the internal default `tentacular-engine:latest`.
 
+### MCP Configuration
+
+MCP connection is configured automatically by
+`tntc cluster install`. For manual or CI/CD setup:
+
+| Config Field | Env Var | Description |
+|-------------|---------|-------------|
+| `mcp.endpoint` | `TNTC_MCP_ENDPOINT` | MCP server URL |
+| `mcp.token_path` | -- | Path to bearer token file |
+| -- | `TNTC_MCP_TOKEN` | Bearer token value (overrides token_path) |
+
+Resolution order: environment variables > project config
+> user config.
+
 ### Cluster Access per Environment
 
 Each environment can specify cluster access using **either**
-`kubeconfig` or `context` (or both):
+`kubeconfig` or `context` (or both). These are used only
+during the `tntc cluster install` bootstrap step:
 
 | Field | Description |
 |-------|-------------|
 | `kubeconfig` | Path to a standalone kubeconfig file. `~` is expanded to home directory. |
 | `context` | Context name. With `kubeconfig`: selects a context within that file. Without: selects a context in the default kubeconfig (`~/.kube/config` or `$KUBECONFIG`). |
 
-If neither is set, the default kubeconfig and current context
-are used.
+After bootstrap, all commands route through MCP and do
+not require direct kubeconfig access.
 
 ```yaml
 environments:
-  # Dedicated kubeconfig file (recommended for multi-cluster)
   dev:
-    kubeconfig: ~/dev-secrets/kubeconfigs/dev.kubeconfig
     namespace: tentacular-dev
-
-  # Context in default kubeconfig (simpler single-cluster)
   staging:
-    context: staging-cluster
     namespace: staging-workflows
-
-  # Both: specific context within a specific kubeconfig file
   prod:
-    kubeconfig: ~/dev-secrets/kubeconfigs/prod.kubeconfig
-    context: prod-admin
     namespace: tentacular-prod
 ```
 
