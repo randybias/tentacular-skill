@@ -198,14 +198,13 @@ flags are needed.
 
 ## MCP Tools Reference
 
-The tentacular MCP server exposes 31 tools organized into
+The tentacular MCP server exposes 29 tools organized into
 11 groups. These tools are available directly from an AI
 agent session -- no `tntc` CLI or `KUBECONFIG` needed.
 
 Agents can discover all tools and their full parameter
 schemas via the MCP `tools/list` method. The sections
-below provide detailed tables for the most commonly used
-tools and a compact reference for the rest.
+below provide detailed parameter tables for every tool.
 
 ### Workflow Discovery
 
@@ -255,106 +254,277 @@ endpoint. Returns the JSON output.
 |-----------|------|----------|-------------|
 | `namespace` | string | Yes | Namespace of the workflow. |
 | `name` | string | Yes | Workflow deployment name. |
-| `input` | JSON | No | Optional JSON input payload. |
-| `timeout_seconds` | int | No | Timeout (default 120, max 600). |
+| `input` | byte[] | No | Optional JSON input payload (byte array). |
+| `timeout_seconds` | int | No | Timeout in seconds (default 120, max 600). |
 
 Returns: `name`, `namespace`, `output` (raw JSON),
 `duration_ms`, `pod_name`.
 
 ### Workflow Lifecycle
 
-#### wf_status
+#### wf_apply
 
-Check deployment status of a workflow.
+Apply a set of Kubernetes manifests as a named deployment
+in a namespace. Uses release labels for tracking and
+garbage collection.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `namespace` | string | Yes | Namespace of the workflow. |
-| `name` | string | Yes | Workflow deployment name. |
-| `detail` | bool | No | Include pods and K8s events. |
+| `namespace` | string | Yes | Target namespace for the workflow. |
+| `name` | string | Yes | Deployment name for tracking resources. |
+| `manifests` | array | Yes | List of Kubernetes manifest objects to apply. |
 
-#### wf_apply / wf_remove
+Allowed manifest kinds: Deployment, Service,
+PersistentVolumeClaim, NetworkPolicy, ConfigMap,
+Secret, Job, CronJob, Ingress.
 
-`wf_apply` deploys workflow manifests (ConfigMap,
-Deployment, Service, NetworkPolicy, CronJobs).
-`wf_remove` removes all resources for a named workflow.
-Both require `namespace` and `name`.
+Returns: `name`, `namespace`, `created` count,
+`updated` count, `deleted` count (garbage-collected
+resources no longer in the manifest set).
+
+#### wf_remove
+
+Remove all resources belonging to a named deployment
+in a namespace.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace containing the workflow resources. |
+| `name` | string | Yes | Deployment name to remove. |
+
+#### wf_status
+
+Get status of all resources belonging to a named
+deployment in a namespace.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace containing the workflow resources. |
+| `name` | string | Yes | Deployment name to check status for. |
 
 ### Workflow Observability
 
 #### wf_logs
 
-Retrieve pod logs for a deployed workflow.
+Get pod logs from a namespace. Returns tail lines
+(default 100).
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `namespace` | string | Yes | Namespace of the workflow. |
-| `name` | string | Yes | Workflow deployment name. |
-| `tail` | int | No | Number of lines (default 100). |
-| `container` | string | No | Container name (default: `engine`). |
+| `namespace` | string | Yes | Namespace of the pod. |
+| `pod` | string | Yes | Name of the pod to get logs from. |
+| `container` | string | No | Container name (defaults to first container). |
+| `tail_lines` | int | No | Number of log lines to return (default 100). |
 
-#### wf_pods / wf_events / wf_jobs
+**Tip:** Use `wf_pods` first to find the pod name, then
+pass it to `wf_logs`.
 
-| Tool | Description | Key Parameters |
-|------|-------------|----------------|
-| `wf_pods` | List pods in a workflow deployment | `namespace`, `name` |
-| `wf_events` | List K8s events in a namespace | `namespace` |
-| `wf_jobs` | List jobs and cronjobs in a namespace | `namespace` |
+#### wf_pods
+
+List pods in a namespace with phase, readiness, restart
+count, images, and age.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace to list pods in. |
+
+#### wf_events
+
+List events in a namespace sorted by most recent first.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace to list events in. |
+| `limit` | int | No | Maximum number of events to return (default 100). |
+
+#### wf_jobs
+
+List Jobs and CronJobs in a namespace.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace to list jobs in. |
 
 ### Namespace Management
 
-| Tool | Description | Key Parameters |
-|------|-------------|----------------|
-| `ns_create` | Create managed namespace with quotas and RBAC | `name` |
-| `ns_delete` | Delete a managed namespace | `name` |
-| `ns_get` | Get namespace details including quota and limits | `name` |
-| `ns_list` | List all managed namespaces | (none) |
+#### ns_create
+
+Create a new managed namespace with network policies,
+resource quotas, and workflow RBAC.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | Yes | Name of the namespace to create. |
+| `quota_preset` | string | Yes | Resource quota preset: `small`, `medium`, or `large`. |
+
+#### ns_delete
+
+Delete a managed namespace. Only namespaces with the
+tentacular managed-by label can be deleted.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | Yes | Name of the namespace to delete. |
+
+#### ns_get
+
+Get details for a namespace including labels, status,
+quota summary, and limit range summary.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | Yes | Name of the namespace to get. |
+
+#### ns_list
+
+List all namespaces managed by tentacular.
+
+No parameters.
 
 ### Credentials
 
-| Tool | Description | Key Parameters |
-|------|-------------|----------------|
-| `cred_issue_token` | Issue short-lived token for workflow SA | `namespace`, `name` |
-| `cred_kubeconfig` | Generate kubeconfig for workflow SA | `namespace`, `name` |
-| `cred_rotate` | Rotate workflow service account credentials | `namespace`, `name` |
+#### cred_issue_token
+
+Issue a short-lived token for the tentacular-workflow
+service account in a namespace.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace to issue the token for. |
+| `ttl_minutes` | int | Yes | Token lifetime in minutes (10-1440). |
+
+#### cred_kubeconfig
+
+Generate a kubeconfig for the tentacular-workflow
+service account in a namespace.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace for the kubeconfig context. |
+| `ttl_minutes` | int | Yes | Token lifetime in minutes (10-1440). |
+
+#### cred_rotate
+
+Rotate the workflow service account in a namespace,
+invalidating all existing tokens.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace whose workflow service account should be rotated. |
 
 ### Cluster Operations
 
-| Tool | Description | Key Parameters |
-|------|-------------|----------------|
-| `cluster_preflight` | Run preflight checks (API, namespace, RBAC, gVisor) | `namespace` |
-| `cluster_profile` | Profile cluster: K8s version, nodes, runtime, CNI, storage | (none) |
+#### cluster_preflight
+
+Run preflight checks for a namespace: API reachability,
+namespace existence, RBAC, and gVisor availability.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace to run preflight checks against. |
+
+#### cluster_profile
+
+Profile the cluster: K8s version, distribution, nodes,
+runtime classes, CNI, storage, and extensions.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | No | Optional namespace to include quota and limit range details. |
 
 ### Cluster Health
 
-| Tool | Description | Key Parameters |
-|------|-------------|----------------|
-| `health_nodes` | List nodes with readiness and capacity | (none) |
-| `health_ns_usage` | Check namespace resource usage vs quotas | `namespace` |
-| `health_cluster_summary` | Aggregate cluster-wide CPU/memory/pods | (none) |
+#### health_nodes
+
+List nodes with readiness, capacity, allocatable
+resources, kubelet version, and unhealthy conditions.
+
+No parameters.
+
+#### health_ns_usage
+
+Compare namespace resource usage against ResourceQuota
+limits and return utilization percentages.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace to check resource usage for. |
+
+#### health_cluster_summary
+
+Aggregate cluster-wide CPU, memory, and pod counts
+across all nodes.
+
+No parameters.
 
 ### Security Audit
 
-| Tool | Description | Key Parameters |
-|------|-------------|----------------|
-| `audit_rbac` | Audit RBAC: wildcards, sensitive access | `namespace` |
-| `audit_netpol` | Audit network policies: default-deny, egress | `namespace` |
-| `audit_psa` | Audit Pod Security Admission configuration | `namespace` |
+#### audit_rbac
+
+Audit RBAC in a namespace: scan for wildcard
+verbs/resources, sensitive access, and
+ClusterRoleBindings targeting namespace service accounts.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace to audit RBAC in. |
+
+#### audit_netpol
+
+Audit network policies in a namespace: check for
+default-deny policy, missing egress restrictions, and
+list all policies.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace to audit network policies in. |
+
+#### audit_psa
+
+Audit Pod Security Admission labels on a namespace:
+check enforce/audit/warn levels and flag non-restricted
+or missing configuration.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace to audit Pod Security Admission configuration in. |
 
 ### gVisor Runtime Sandbox
 
-| Tool | Description | Key Parameters |
-|------|-------------|----------------|
-| `gvisor_check` | Check if gVisor RuntimeClass is available | (none) |
-| `gvisor_apply` | Apply gVisor annotation to namespace | `namespace` |
-| `gvisor_verify` | Verify gVisor sandboxing with test pod | `namespace` |
+#### gvisor_check
+
+Check whether a gVisor RuntimeClass is available in the
+cluster.
+
+No parameters.
+
+#### gvisor_apply
+
+Apply the gVisor runtime class annotation to a managed
+namespace.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace to apply gVisor runtime class annotation to. |
+
+#### gvisor_verify
+
+Verify gVisor sandboxing by creating an ephemeral pod
+with the gVisor runtime class and checking kernel
+identity.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace in which to create the verification pod. |
 
 ### Module Proxy
 
 #### proxy_status
 
-Checks the installation and readiness status of the
-in-cluster module proxy (esm.sh).
+Check the installation and readiness status of the
+module proxy (esm.sh).
+
+No parameters.
 
 Returns: `installed`, `ready`, `namespace`, `image`,
 `storage`.
@@ -563,7 +733,7 @@ workflows through six steps:
 tntc validate -o json               # 1. Validate spec + contract
 tntc visualize --rich --write       # 2. Persist contract artifacts
 tntc test -o json                   # 3. Mock tests + drift detection
-tntc test --live --env dev -o json  # 4. Live test against dev
+tntc test --live --env <target> -o json  # 4. Live test against target env
 tntc deploy -o json                 # 5. Deploy (auto-gates on live)
 tntc run <name> -o json             # 6. Post-deploy verification
 ```
@@ -582,6 +752,38 @@ tntc run <name> -o json             # 6. Post-deploy verification
 For step details, deploy gate behavior, structured
 output format, and the pre-build review gate, read
 [references/deployment-guide.md](references/deployment-guide.md).
+
+## Dependency Preflight
+
+Before deploying a workflow, verify that all
+infrastructure dependencies are in place. Deploying
+without these checks leads to pods that start but
+fail at runtime.
+
+**Run these checks after cluster profiling and before
+build/deploy:**
+
+- **Namespace exists** -- use `ns_get` (MCP) or
+  `tntc cluster check -n <namespace>` to confirm the
+  target namespace is created. If missing, create it
+  with `ns_create` (MCP) or ask the cluster admin.
+- **Database exists** -- if the workflow declares a
+  `postgresql` dependency in `contract.dependencies`,
+  verify the database is provisioned and reachable
+  before deploying. Mock tests do not catch a missing
+  database.
+- **External services reachable** -- if the workflow
+  declares `https` dependencies, confirm the target
+  hosts are reachable from the cluster. NetworkPolicy
+  allows egress, but DNS or firewall issues can still
+  block traffic.
+- **Module proxy healthy** -- use `proxy_status` (MCP)
+  to verify the in-cluster esm.sh proxy is running.
+  The engine needs it to resolve TypeScript imports at
+  startup.
+
+These checks are fast and prevent the most common
+class of deploy-then-debug failures.
 
 ## Environment Configuration
 

@@ -50,15 +50,15 @@ This runs the full DAG end-to-end. After it passes:
 If pipeline output is empty or wrong: go back to `phases/04-build.md` and find
 the node that broke the chain.
 
-### Gate 5: Live test against dev (required before any production deploy)
+### Gate 5: Live test (required before any production deploy)
 
 ```bash
-tntc test --live --env dev
+tntc test --live --env <your-environment>
 ```
 
-No production deploy without a passing live test. No exceptions.
+Replace `<your-environment>` with the target environment name (e.g., `dev`, `staging`). No production deploy without a passing live test. No exceptions.
 
-If dev environment is unavailable: stop and resolve that before deploying to prod.
+If the target environment is unavailable: stop and resolve that before deploying to prod.
 
 ---
 
@@ -159,7 +159,7 @@ Do not use `<env.kubeconfig>` literally. Do not pass `~` unexpanded.
 - [ ] `tntc validate` passes
 - [ ] All individual node tests pass
 - [ ] `tntc test --pipeline` passes with correct final output
-- [ ] `tntc test --live --env dev` passes
+- [ ] `tntc test --live --env <your-environment>` passes
 - [ ] `workflow-diagram.md` and `contract-summary.md` generated: `tntc visualize --rich --write`
 - [ ] `tntc run` post-deploy output verified (not empty, not a status string)
 
