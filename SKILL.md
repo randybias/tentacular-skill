@@ -84,7 +84,8 @@ It is composed of three key components:
   topologically sorted stages, loads TypeScript node
   modules, runs them with a Context providing dependency
   resolution, fetch, logging, config, and secrets.
-  Exposes HTTP triggers (`POST /run`, `GET /health`).
+  Exposes HTTP triggers (`POST /run`, `GET /health`,
+  `GET /health?detail=1` for telemetry snapshots).
 
 The key benefits of Tentacular are:
 
