@@ -71,7 +71,10 @@ Generates and applies Kubernetes manifests. Runs preflight checks automatically 
 
 ### Generated Manifests
 
-Manifests always include a ConfigMap, Deployment, and Service. CronJob manifests are added for each `type: cron` trigger.
+Manifests always include a ConfigMap, Deployment, Service, and NetworkPolicy.
+For `type: cron` triggers, the schedule is stored in a
+`tentacular.dev/cron-schedule` annotation on the Deployment. No CronJob
+resources are generated.
 
 **ConfigMap** with workflow code:
 
@@ -616,7 +619,10 @@ tntc run my-workflow -n production
 tntc run my-workflow -n production --timeout 60s
 ```
 
-The MCP server creates an ephemeral curl pod in-cluster that POSTs to the workflow's ClusterIP service. The curl command includes `--retry 5 --retry-connrefused --retry-delay 1` to handle the kube-router NetworkPolicy ipset sync race. Status messages go to stderr; the JSON result goes to stdout (pipe-friendly).
+The MCP server triggers the workflow via direct HTTP to the workflow's
+ClusterIP service on port 8080. NetworkPolicy allows ingress from
+tentacular-system via namespaceSelector. No ephemeral pods are created. Status messages go to stderr; the JSON result goes to stdout
+(pipe-friendly).
 
 ### View Logs
 
@@ -682,7 +688,7 @@ Compares deployed K8s resources against contract-derived expectations.
 |----------|-----------|
 | NetworkPolicy | Deployed vs derived egress/ingress rules |
 | Secrets | Deployed secret keys vs derived secret inventory (at service-name level) |
-| CronJobs | Count of deployed CronJobs vs cron triggers in workflow |
+| Cron annotation | `tentacular.dev/cron-schedule` on Deployment vs cron triggers in workflow |
 
 ### Flags
 
@@ -695,7 +701,8 @@ Compares deployed K8s resources against contract-derived expectations.
 
 ### Cron Triggers
 
-Cron triggers generate K8s CronJob manifests automatically during `tntc deploy`.
+Cron triggers are scheduled by the MCP server's internal cron scheduler. No
+CronJob resources are created in the cluster.
 
 #### Setup
 
@@ -712,52 +719,27 @@ triggers:
 
 #### What Gets Generated
 
-Each cron trigger produces a CronJob that curls the workflow's ClusterIP service:
+`tntc deploy` stores cron schedules in a `tentacular.dev/cron-schedule`
+annotation on the Deployment. The MCP server reads this annotation on startup
+and after each `wf_apply`, registering an internal cron entry for each schedule.
 
-- **Single cron**: CronJob named `{wf}-cron`
-- **Multiple crons**: CronJobs named `{wf}-cron-0`, `{wf}-cron-1`, etc.
+On each scheduled fire, the MCP server calls `wf_run` internally (via direct
+HTTP) -- no CronJob, no Pod, no `curlimages/curl`.
+
 - **Named trigger**: POSTs `{"trigger": "<name>"}` to `/run`
 - **Unnamed trigger**: POSTs `{}` to `/run`
 
-CronJob properties:
-- Image: `curlimages/curl:latest`
-- Target: `http://{wf}.{ns}.svc.cluster.local:8080/run`
-- `concurrencyPolicy: Forbid` (no overlapping runs)
-- `successfulJobsHistoryLimit: 3`, `failedJobsHistoryLimit: 3`
-- Labels: `app.kubernetes.io/name`, `app.kubernetes.io/managed-by: tentacular`
+#### NetworkPolicy for Control-Plane Traffic
 
-#### Trigger Egress NetworkPolicy
-
-CronJob trigger pods run in the same namespace as the
-workflow and need their own egress NetworkPolicy to
-reach the engine pod. The CLI auto-generates a
-`{wf}-trigger-egress` NetworkPolicy during
-`tntc deploy` that allows:
-
-- **TCP 8080** egress to the engine pod (selected by
-  `app.kubernetes.io/name: {wf}`)
-- **UDP/TCP 53** egress to `kube-dns` for DNS
-  resolution
-
-This policy applies to pods with the label
-`tentacular.dev/role: trigger`. Without it, trigger
-pods are blocked by the namespace's default-deny
-egress policy and cannot reach the workflow service.
-
-The trigger NetworkPolicy is managed automatically by
-the CLI -- no manual authoring required. It is
-included in the manifests applied via `wf_apply` (MCP)
-and removed by `wf_remove` / `tntc undeploy`.
-
-#### Viewing CronJobs
-
-```bash
-kubectl get cronjobs -n <namespace> -l app.kubernetes.io/managed-by=tentacular
-```
+The generated NetworkPolicy includes an ingress rule allowing TCP 8080 from
+the tentacular-system namespace (via namespaceSelector). This permits the
+MCP server to reach the workflow engine via direct HTTP. It is required for
+both `wf_run` and cron triggers.
 
 #### Parameterized Execution
 
-With named triggers, the first node receives `{"trigger": "daily-digest"}` as input. Use this to branch behavior:
+With named triggers, the first node receives `{"trigger": "daily-digest"}` as
+input. Use this to branch behavior:
 
 ```typescript
 export default async function run(ctx: Context, input: { trigger?: string }) {
@@ -768,6 +750,20 @@ export default async function run(ctx: Context, input: { trigger?: string }) {
   }
 }
 ```
+
+#### Module Pre-Warm and First-Start Race
+
+When deploying workflows with `jsr:` or `npm:` dependencies for the first time,
+the MCP server pre-warms the module proxy cache in the background after
+`wf_apply` returns. There is a brief race window where the workflow pod may
+start before warming completes. If this happens, the first pod start will fail
+with a module resolution timeout, but Kubernetes will automatically restart the
+pod. By the second attempt, the cache will be warm and the pod will start
+successfully.
+
+This is expected and normal for first-time deploys with new module dependencies.
+You can confirm recovery by checking `wf_pods` for restart count (1 restart is
+normal on first deploy) and `wf_logs` on the previous container for the error.
 
 ### Queue Triggers (NATS)
 
@@ -816,12 +812,14 @@ On SIGTERM/SIGINT, the engine:
 
 `tntc undeploy` removes the following resources for a workflow:
 
+- ConfigMap (`{name}-code`)
+- Deployment (and its `tentacular.dev/cron-schedule` annotation)
 - Service
-- Deployment
+- NetworkPolicy
 - Secret (`{name}-secrets`)
-- **All CronJobs** matching labels `app.kubernetes.io/name={name},app.kubernetes.io/managed-by=tentacular`
 
-CronJob cleanup uses label selectors, so it catches all CronJobs regardless of how many triggers existed.
+The MCP server drops cron entries for removed Deployments automatically on the
+next sync. No CronJob resources are created or need to be cleaned up.
 
 **Note:** All workflow resources including the ConfigMap (`{name}-code`) are deleted by `tntc undeploy`.
 
@@ -978,13 +976,13 @@ timeout is 120 seconds (`--timeout` to override).
 
 ### 5. Deploy
 
-Generates K8s manifests including auto-derived
-NetworkPolicy from contract dependencies and trigger
-types. When a dev environment is configured, deploy
-automatically runs a live test first and aborts if it
-fails. Use `--force` (alias `--skip-live-test`) to
-skip the live test gate. Add `--verify` for post-deploy
-verification. Deploy aborts before manifest apply if
+Generates K8s manifests (ConfigMap, Deployment, Service, NetworkPolicy)
+including auto-derived NetworkPolicy from contract dependencies. Cron trigger
+schedules are stored as a `tentacular.dev/cron-schedule` annotation on the
+Deployment -- no CronJob resources are generated. When a dev environment is
+configured, deploy automatically runs a live test first and aborts if it fails.
+Use `--force` (alias `--skip-live-test`) to skip the live test gate. Add
+`--verify` for post-deploy verification. Deploy aborts before manifest apply if
 contract validation fails in strict mode.
 
 ### 6. Post-Deploy Verification

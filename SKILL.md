@@ -246,9 +246,12 @@ workflow ConfigMap (`<name>-code`) when available.
 
 #### wf_run
 
-Triggers a deployed workflow by creating an ephemeral
-in-cluster curl pod that POSTs to the workflow's `/run`
-endpoint. Returns the JSON output.
+Triggers a deployed workflow by POSTing directly to the
+workflow's `/run` endpoint via HTTP. The MCP server in
+tentacular-system connects directly to the workflow
+service; NetworkPolicy allows ingress from
+tentacular-system via namespaceSelector. Returns the
+JSON output. No ephemeral pods are created.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -257,8 +260,8 @@ endpoint. Returns the JSON output.
 | `input` | byte[] | No | Optional JSON input payload (byte array). |
 | `timeout_seconds` | int | No | Timeout in seconds (default 120, max 600). |
 
-Returns: `name`, `namespace`, `output` (raw JSON),
-`duration_ms`, `pod_name`.
+Returns: `name`, `namespace`, `output` (structured JSON),
+`duration_ms`.
 
 ### Workflow Lifecycle
 
@@ -598,8 +601,8 @@ parameters (e.g., `target_repo`, `sep_label`).
 
 | Type | Mechanism | Required Fields | K8s Resources | Status |
 |------|-----------|----------------|---------------|--------|
-| `manual` | HTTP POST `/run` | none | -- | Implemented |
-| `cron` | K8s CronJob -> curl POST `/run` | `schedule`, optional `name` | CronJob | Implemented |
+| `manual` | MCP server POSTs to `/run` via direct HTTP | none | -- | Implemented |
+| `cron` | MCP server internal scheduler reads annotation, calls wf_run | `schedule`, optional `name` | Deployment annotation | Implemented |
 | `queue` | NATS subscription -> execute | `subject` | -- | Implemented |
 | `webhook` | Future: gateway -> NATS bridge | `path` | -- | Roadmap |
 
@@ -614,15 +617,34 @@ nodes receive this as `input.trigger` to branch behavior.
 
 1. Define in workflow.yaml: `type: cron`,
    `schedule: "0 9 * * *"`, optional `name`
-2. `tntc deploy` generates CronJob manifest(s) alongside
-   Deployment and Service
-3. CronJob naming: `{wf}-cron` (single) or
-   `{wf}-cron-0`, `{wf}-cron-1` (multiple)
-4. CronJob curls
-   `http://{wf}.{ns}.svc.cluster.local:8080/run` with
-   trigger payload
-5. `tntc undeploy` deletes CronJobs by label selector
-   (automatic cleanup)
+2. `tntc deploy` records the schedule in a
+   `tentacular.dev/cron-schedule` annotation on the
+   Deployment. No CronJob resource is created.
+3. The MCP server's internal cron scheduler reads the
+   annotation on startup and after each `wf_apply`. It
+   fires `wf_run` internally on schedule.
+4. Named triggers: scheduler POSTs
+   `{"trigger": "<name>"}` to `/run`.
+5. `tntc undeploy` removes the Deployment (and its
+   annotation). The MCP server drops the cron entry
+   automatically on the next sync.
+
+### Module Pre-Warm and First-Start Race
+
+When deploying workflows with `jsr:` or `npm:` dependencies
+for the first time, the MCP server pre-warms the module
+proxy cache in the background immediately after `wf_apply`
+returns. There is a brief race window where the workflow
+pod may start before warming completes. If this happens,
+the first pod start will fail with a module resolution
+timeout, but Kubernetes will automatically restart the pod.
+By the second attempt, the cache will be warm and the pod
+will start successfully.
+
+This is expected and normal for first-time deploys with
+new module dependencies. You can confirm recovery by
+checking `wf_pods` for restart count and `wf_logs` for
+the error on the first attempt.
 
 ### Queue Trigger (NATS)
 
@@ -798,6 +820,16 @@ environment config > project config > user config >
 defaults. See
 [references/deployment-guide.md](references/deployment-guide.md)
 for full environment configuration details.
+
+### Namespace Convention
+
+Tentacular uses three categories of namespaces:
+
+| Namespace | Purpose |
+|-----------|---------|
+| `tentacular-system` | MCP server and secure control plane. Protected -- no workflow tools can target this namespace. |
+| `tentacular-support` | Secure support systems. Hosts the esm.sh module proxy. Protected from workflow operations. |
+| All others with `app.kubernetes.io/managed-by=tentacular` | Workflow namespaces. Created by `ns_create`, managed by workflow tools. |
 
 ### MCP Configuration
 

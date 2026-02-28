@@ -64,13 +64,32 @@ If the target environment is unavailable: stop and resolve that before deploying
 
 ## Cron Workflow Testing
 
-Cron workflows have no webhook or queue trigger — they fire on a schedule. **You must manually trigger them for testing.** Never wait for the schedule to fire to verify a fresh deploy.
+Cron workflows fire on a schedule managed by the MCP server's internal
+scheduler. The schedule is stored in a `tentacular.dev/cron-schedule` annotation
+on the Deployment -- no CronJob resources are created. **You must manually
+trigger cron workflows for testing.** Never wait for the schedule to fire to
+verify a fresh deploy.
 
 ### Step 1: Deploy first, then trigger manually
 
 ```bash
 tntc deploy --env <target>
 tntc status <workflow-name>   # wait for ready
+```
+
+If deploying with new `jsr:` or `npm:` module dependencies for the first time,
+the MCP server pre-warms the module proxy cache in the background. There is a
+brief race window where the workflow pod may fail on its first start with a
+module resolution timeout. Wait for the pod to restart (one restart is normal)
+and confirm readiness before proceeding:
+
+```bash
+wf_pods namespace=<namespace>   # check for 1 restart, then ready
+```
+
+Then trigger manually:
+
+```bash
 tntc run <workflow-name>      # manual trigger — fires the workflow immediately
 ```
 
@@ -203,4 +222,7 @@ assumes cert-manager with a `letsencrypt-prod` cluster-issuer is present.
 tntc undeploy <workflow-name>
 ```
 
-Removes: Deployment, Service, Secret, ConfigMap, CronJobs. Verify with `tntc list`.
+Removes: Deployment (and cron annotation), Service, Secret, ConfigMap,
+NetworkPolicy. No CronJob resources are created, so none need cleanup. The MCP
+server drops cron entries automatically when the Deployment is removed. Verify
+with `tntc list`.
