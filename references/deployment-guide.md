@@ -636,6 +636,34 @@ Returns a snapshot of recent log lines via MCP. `--tail` controls how many lines
 > **Note:** `--follow` is not supported through MCP.
 > For real-time log streaming, use `kubectl logs -f`.
 
+### Check Workflow Health
+
+Use the MCP health tools to monitor workflow runtime
+status without shelling out:
+
+```
+# Quick namespace-wide scan (MCP tool: wf_health_ns)
+# Returns G/A/R summary for all workflows in a namespace
+
+# Drill into a specific workflow (MCP tool: wf_health)
+# Returns green/amber/red status with reason
+
+# Deep dive with telemetry (MCP tool: wf_health with detail=true)
+# Returns execution telemetry from the engine /health endpoint
+```
+
+Health status levels:
+
+| Status | Meaning |
+|--------|---------|
+| Green | Pod ready, health endpoint reachable, no failure signals |
+| Amber | Pod ready but last execution failed or execution in flight |
+| Red | Pod not ready or health endpoint unreachable |
+
+Start with `wf_health_ns` for a namespace overview. If
+any workflows show amber or red, use `wf_health` to get
+the reason, then `wf_logs` for pod-level diagnostics.
+
 ### Remove a Workflow
 
 ```bash

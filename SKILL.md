@@ -198,8 +198,8 @@ flags are needed.
 
 ## MCP Tools Reference
 
-The tentacular MCP server exposes 29 tools organized into
-11 groups. These tools are available directly from an AI
+The tentacular MCP server exposes 31 tools organized into
+12 groups. These tools are available directly from an AI
 agent session -- no `tntc` CLI or `KUBECONFIG` needed.
 
 Agents can discover all tools and their full parameter
@@ -347,6 +347,88 @@ List Jobs and CronJobs in a namespace.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `namespace` | string | Yes | Namespace to list jobs in. |
+
+### Workflow Health
+
+#### wf_health
+
+Get G/A/R health status of a single workflow deployment.
+Checks pod readiness and probes the engine `/health`
+endpoint. With `detail=true`, includes execution
+telemetry from `/health?detail=1`.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Workflow namespace. |
+| `name` | string | Yes | Deployment name. |
+| `detail` | bool | No | Include execution telemetry from health endpoint (default false). |
+
+Returns: `name`, `namespace`, `status` (green/amber/red),
+`reason`, `pod_ready`, `detail` (when requested).
+
+#### wf_health_ns
+
+Aggregate G/A/R health status for all tentacular workflow
+deployments in a namespace. Returns per-workflow status
+and a summary with green/amber/red counts.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace to scan. |
+| `limit` | int | No | Max workflows to check (default 20). |
+
+Returns: `namespace`, `summary` (green/amber/red counts),
+`workflows` (array of name/status/reason entries),
+`truncated`, `total`.
+
+#### G/A/R Health Status Model
+
+Health status uses a three-level classification:
+
+| Status | Meaning | Conditions |
+|--------|---------|------------|
+| Green | Healthy | Pod ready, health endpoint reachable, no failure signals |
+| Amber | Degraded | Pod ready but last execution failed or execution in flight |
+| Red | Unhealthy | Pod not ready or health endpoint unreachable |
+
+#### Standard Reports
+
+**Workflow Listing Report** (from `wf_health_ns`):
+
+```
+Namespace: production
+Workflows: 5 total | 🟢 3 green | 🟡 1 amber | 🔴 1 red
+
+NAME                      VERSION  REPLICAS  HEALTH  LAST RUN         DURATION
+uptime-prober             1.0      1/1       🟢      2m ago (ok)      1.2s
+slack-notifier            1.0      1/1       🟡      5m ago (failed)  0.8s
+data-collector            1.0      0/1       🔴      --               --
+```
+
+**Workflow Detail Report** (from `wf_health` with
+`detail=true`):
+
+```
+Workflow: slack-notifier
+Namespace: production
+Health: 🟡 AMBER -- last execution failed
+Last Run: 5m ago | Duration: 0.8s
+Totals: 142 runs | 140 succeeded | 2 failed
+Recommended next steps:
+  - Check logs: tntc logs slack-notifier -n production
+  - Re-run: tntc run slack-notifier -n production
+```
+
+#### Progressive Disclosure
+
+Use health checks in a layered approach:
+
+1. **Quick scan** -- `wf_health_ns` for namespace-wide
+   overview. If all green, no further action needed.
+2. **Drill down** -- `wf_health` (without detail) for
+   any amber or red workflows to get the reason.
+3. **Deep dive** -- `wf_health` with `detail=true` for
+   execution telemetry, then `wf_logs` for pod logs.
 
 ### Namespace Management
 

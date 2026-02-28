@@ -139,6 +139,22 @@ tntc run <workflow-name>
 
 Inspect the output. It must contain the correct end-to-end data — not just `{"status":"ok"}`.
 
+### Post-deploy health check
+
+After verifying the run output, confirm the workflow
+reports healthy via the MCP health tools:
+
+1. Use `wf_health` (MCP tool) to check the workflow's
+   G/A/R status. It should report **green**.
+2. If amber or red, use `wf_health` with `detail=true`
+   to get execution telemetry, then `wf_logs` for
+   pod-level diagnostics.
+3. For namespace-wide checks, use `wf_health_ns` to
+   confirm all workflows in the namespace are green.
+
+A green health status after a successful `tntc run`
+confirms the workflow is fully operational.
+
 If the live output is wrong or empty after a successful deploy: the workflow has
 a data-flow bug that tests didn't catch. Return to `phases/04-build.md`, trace
 the data flow, and find the performative or broken node.
