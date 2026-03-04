@@ -294,10 +294,11 @@ environments:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `context` | string | No | Kubeconfig context name. If set, the CLI switches to this context before operating. |
 | `namespace` | string | No | Target K8s namespace for this environment |
 | `image` | string | No | Engine image tag to use |
 | `runtime_class` | string | No | RuntimeClass name. Empty string disables gVisor. |
+| `mcp_endpoint` | string | No | MCP server URL for this environment |
+| `mcp_token_path` | string | No | Path to bearer token file for this environment. `~` expanded. |
 | `config_overrides` | map | No | Key-value pairs merged into workflow config for this environment |
 | `secrets_source` | string | No | Path to the secrets file for this environment |
 
@@ -508,39 +509,30 @@ Edit code → tntc deploy (ConfigMap update + rollout) = ~5-10s
 
 The ConfigMap update is instant (YAML over HTTP), and the rollout restart triggers a pod restart without re-pulling the image.
 
-## Cluster Bootstrap
+## MCP Server Installation
+
+The MCP server is installed separately via its Helm chart
+(one-time per cluster). The CLI has no direct Kubernetes
+API access.
 
 ```bash
-tntc cluster install
+TOKEN=$(openssl rand -hex 32)
+helm install tentacular-mcp charts/tentacular-mcp \
+  --namespace tentacular-system --create-namespace \
+  --set auth.token="${TOKEN}"
 ```
 
-Bootstraps the tentacular-mcp server and module proxy
-in the target cluster. This is the **only** `tntc`
-command that communicates directly with the Kubernetes
-API. All subsequent commands route through MCP.
+After installation, configure the CLI to connect:
 
-### What It Does
+```yaml
+# ~/.tentacular/config.yaml
+mcp:
+  endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
+  token_path: ~/.tentacular/mcp-token
+```
 
-1. Creates the `tentacular-system` namespace
-2. Generates a bearer token for MCP authentication
-3. Deploys the MCP server (ServiceAccount, ClusterRole,
-   ClusterRoleBinding, Secret, Deployment, Service)
-4. Optionally deploys the esm.sh module proxy
-5. Waits for the MCP server to become healthy
-6. Saves the MCP endpoint and token to
-   `~/.tentacular/config.yaml`
-
-### Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--namespace` | `tentacular-system` | Namespace to install into |
-| `--image` | `ghcr.io/randybias/tentacular-mcp:latest` | MCP server image |
-| `--module-proxy` | `true` | Install esm.sh module proxy |
-| `--proxy-storage` | `emptydir` | Module proxy cache: `emptydir` or `pvc` |
-| `--proxy-pvc-size` | `5Gi` | PVC size (when storage=pvc) |
-| `--proxy-image` | `ghcr.io/esm-dev/esm.sh:v136` | Module proxy image |
-| `--wait` | `120s` | Timeout for MCP readiness |
+See the [tentacular-mcp README](https://github.com/randybias/tentacular-mcp)
+for Helm values and deployment options.
 
 ## Cluster Check
 
@@ -676,8 +668,8 @@ Removes all resources associated with the workflow via MCP. Prompts for confirma
 ### Full Lifecycle (No kubectl)
 
 ```bash
-# Bootstrap (one-time per cluster)
-tntc cluster install
+# MCP server install (one-time per cluster, via Helm)
+# helm install tentacular-mcp charts/tentacular-mcp ...
 
 # Initial setup: validate and build engine image (one time)
 tntc validate my-workflow
@@ -701,6 +693,60 @@ tntc undeploy my-workflow -n production --yes
 ```
 
 After the initial `build`, subsequent code changes only require `deploy` (no Docker build/push).
+
+## Environment Promotion (Agent Workflow)
+
+Promotion between environments is an agent process, not a
+CLI command. The agent deploys to dev, verifies health,
+then deploys to prod using the same workflow source with
+different `--env` targets. Per-environment MCP config
+enables targeting different clusters.
+
+### Promotion Flow
+
+```bash
+# 1. Deploy to dev environment
+tntc deploy my-workflow --env dev
+
+# 2. Wait for rollout, then verify health
+tntc status my-workflow --env dev --detail
+# Or use MCP tool: wf_health(namespace, name, detail=true)
+
+# 3. Run in dev to validate end-to-end
+tntc run my-workflow --env dev
+
+# 4. Only if dev is GREEN: deploy to prod
+tntc deploy my-workflow --env prod
+
+# 5. Post-promote verification
+tntc status my-workflow --env prod --detail
+tntc run my-workflow --env prod
+```
+
+### Promotion Rules
+
+1. **Health gate**: Dev deployment MUST show GREEN health
+   status (`wf_health` returns `status: "GREEN"`) before
+   promoting to prod. Do not skip this check.
+
+2. **Same source, different config**: Both environments
+   use the same local workflow source (workflow.yaml +
+   nodes/*.ts). Per-env settings (namespace, image,
+   runtime_class, MCP endpoint) are resolved from the
+   environment config.
+
+3. **Secrets are NOT shared**: Each environment has its
+   own secrets. Deploying to prod does not transfer dev
+   secrets. Provision secrets separately in the target
+   environment before deploying.
+
+4. **Config overrides apply per-env**: If the dev
+   environment has `config_overrides.debug: true`, prod
+   will not inherit that unless explicitly configured.
+
+5. **No automatic rollback**: If the prod deploy fails,
+   diagnose via `tntc logs --env prod` and MCP health
+   tools before retrying.
 
 ## Audit Deployed Resources
 

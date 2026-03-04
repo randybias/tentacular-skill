@@ -29,25 +29,30 @@ If `tntc version` reports `dev (commit none, built unknown)`, the binary was bui
 
 > **Minimum required version:** Check `tntc version` output. If the skill specifies a minimum version and the installed binary reports an older tag, re-run the install script with `TNTC_VERSION=<tag>`.
 
-### MCP Server Bootstrap
+### MCP Server Prerequisite
 
 Before deploying workflows, the MCP server must be
-installed in the target cluster. This is a one-time
-bootstrap step:
+installed in the target cluster. Install it via its
+Helm chart (one-time per cluster):
 
 ```bash
-tntc cluster install
+TOKEN=$(openssl rand -hex 32)
+helm install tentacular-mcp charts/tentacular-mcp \
+  --namespace tentacular-system --create-namespace \
+  --set auth.token="${TOKEN}"
 ```
 
-This deploys the tentacular-mcp server and module proxy
-into the `tentacular-system` namespace, generates a
-bearer token, and saves the MCP endpoint and token to
-`~/.tentacular/config.yaml`. All subsequent `tntc`
-commands automatically route through MCP.
+Then configure the CLI to connect:
 
-`tntc cluster install` is the **only** command that
-communicates directly with the Kubernetes API. All other
-cluster operations go through the MCP server.
+```yaml
+# ~/.tentacular/config.yaml
+mcp:
+  endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
+  token_path: ~/.tentacular/mcp-token
+```
+
+The CLI has no direct Kubernetes API access. All
+cluster operations route through the MCP server.
 
 ## Architecture
 
@@ -72,13 +77,12 @@ It is composed of three key components:
 
 - **Go CLI** (`cmd/tntc/`, `pkg/`) -- the data plane.
   Manages the workflow lifecycle: scaffold, validate,
-  dev, test, build, deploy. After bootstrap, all cluster
+  dev, test, build, deploy. All cluster
   operations route through the MCP server.
 - **MCP Server** (`tentacular-mcp`) -- the control plane.
   An in-cluster MCP server that proxies all K8s
   operations through scoped RBAC. The CLI communicates
-  with the cluster exclusively through MCP after the
-  initial `tntc cluster install` bootstrap.
+  with the cluster exclusively through MCP.
 - **Deno/TypeScript Engine** (`engine/`) -- executes
   workflows as DAGs. Compiles workflow.yaml into
   topologically sorted stages, loads TypeScript node
@@ -103,9 +107,9 @@ The key benefits of Tentacular are:
 
 ## CLI vs MCP: When to Use Which
 
-Both the CLI and MCP tools require `tntc cluster install`
-to have been run first (except for purely local commands
-like `validate` and `test`).
+Both the CLI and MCP tools require the MCP server to be
+installed (via Helm) and configured (except for purely
+local commands like `validate` and `test`).
 
 **Use `tntc` CLI** for the full lifecycle and
 terminal/CI operations:
@@ -126,7 +130,8 @@ out:
 **Decision tree:**
 - Building or developing a workflow? **CLI**
 - Querying or operating on the cluster? **MCP tools**
-- Bootstrap or initial setup? **CLI**
+- Installing the MCP server? **Helm chart**
+- Promoting between environments? **Agent workflow** (deploy dev, verify, deploy prod)
 - Agent session needing cluster info? **MCP tools**
 
 ---
@@ -178,9 +183,10 @@ working copy lives in tentacles.
 ## Querying Running Workflows
 
 All cluster operations route through the MCP server.
-Once the MCP server is installed (`tntc cluster install`),
-commands like `list`, `status`, `logs`, `run`, and
-`undeploy` work without `KUBECONFIG` or direct K8s access:
+Once the MCP server is installed (via Helm) and the
+CLI is configured with the MCP endpoint, commands like
+`list`, `status`, `logs`, `run`, and `undeploy` work
+without `KUBECONFIG` or direct K8s access:
 
 ```bash
 tntc list -n <namespace>
@@ -189,10 +195,9 @@ tntc logs <workflow-name> -n <namespace>
 tntc run <workflow-name> -n <namespace>
 ```
 
-The MCP endpoint and token are auto-configured by
-`tntc cluster install` and saved to
-`~/.tentacular/config.yaml`. No per-command MCP URL
-flags are needed.
+The MCP endpoint and token are configured in
+`~/.tentacular/config.yaml` (per-environment or global).
+No per-command MCP URL flags are needed.
 
 > **Note:** `tntc logs --follow` is not supported through
 > MCP (snapshot only). Use `kubectl logs -f` for streaming.
@@ -803,9 +808,9 @@ config:
 ## Common Workflow
 
 ```
-# Bootstrap (one-time per cluster)
-tntc cluster install               # deploy MCP server + module proxy
-tntc configure --registry reg.io   # one-time registry setup
+# MCP server install (one-time per cluster, via Helm)
+# helm install tentacular-mcp charts/tentacular-mcp ...
+tntc configure --registry reg.io   # one-time registry setup + MCP endpoint
 
 # Workflow development
 tntc init my-workflow              # scaffold directory
@@ -858,6 +863,49 @@ For step details, deploy gate behavior, structured
 output format, and the pre-build review gate, read
 [references/deployment-guide.md](references/deployment-guide.md).
 
+## Environment Promotion
+
+Promotion is an **agent workflow pattern**, not a CLI
+command. The agent deploys to dev first, verifies
+health, then deploys to prod using the same CLI
+commands with different `--env` targets.
+
+### Promotion Steps
+
+```bash
+# 1. Deploy to dev
+tntc deploy my-workflow --env dev
+
+# 2. Verify health in dev (via MCP)
+#    Use wf_health MCP tool or:
+tntc status my-workflow --env dev --detail
+
+# 3. Run in dev to confirm
+tntc run my-workflow --env dev
+
+# 4. Deploy to prod (same source, different env)
+tntc deploy my-workflow --env prod
+
+# 5. Verify health in prod
+tntc status my-workflow --env prod --detail
+```
+
+### Agent Promotion Rules
+
+- **Health gate**: The dev deployment MUST show GREEN
+  health status before promoting to prod. Check with
+  `wf_health` (MCP tool) or `tntc status --detail`.
+- **Same source**: Both environments deploy from the
+  same local workflow source. Per-env settings
+  (namespace, image, runtime_class, MCP endpoint) come
+  from the environment config.
+- **Secrets are separate**: Each environment has its own
+  secrets. Deploying to prod does NOT copy dev secrets.
+  Provision prod secrets separately before deploying.
+- **No automatic rollback**: If prod deploy fails, the
+  agent should diagnose via `tntc logs` and `wf_health`
+  before retrying.
+
 ## Dependency Preflight
 
 Before deploying a workflow, verify that all
@@ -896,11 +944,13 @@ Named environments (`dev`, `staging`, `production`)
 extend the config cascade with cluster-specific
 settings. Define them in `~/.tentacular/config.yaml`
 or `.tentacular/config.yaml`. Each environment can
-specify `context`, `namespace`, `image`,
-`runtime_class`, `config_overrides`, and
-`secrets_source`. Resolution order: CLI flags >
-environment config > project config > user config >
-defaults. See
+specify `namespace`, `image`, `runtime_class`,
+`mcp_endpoint`, `mcp_token_path`, `config_overrides`,
+and `secrets_source`. The `default_env` field sets which
+environment is used when no `--env` flag or
+`TENTACULAR_ENV` variable is set. Resolution order:
+CLI flags > environment config > project config >
+user config > defaults. See
 [references/deployment-guide.md](references/deployment-guide.md)
 for full environment configuration details.
 
@@ -916,19 +966,32 @@ Tentacular uses three categories of namespaces:
 
 ### MCP Configuration
 
-The MCP server connection is configured automatically
-by `tntc cluster install`. Manual configuration:
+MCP connection is configured per-environment or globally:
 
 ```yaml
 # ~/.tentacular/config.yaml
+default_env: dev
+
 mcp:
   endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
   token_path: ~/.tentacular/mcp-token
+
+environments:
+  dev:
+    namespace: tentacular-dev
+    mcp_endpoint: http://localhost:8080
+    mcp_token_path: ~/.tentacular/mcp-token
+  prod:
+    namespace: tentacular-prod
+    mcp_endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
+    mcp_token_path: ~/.tentacular/prod-mcp-token
 ```
 
-Environment variables (override config file):
-- `TNTC_MCP_ENDPOINT` -- MCP server URL
-- `TNTC_MCP_TOKEN` -- bearer token value
+MCP resolution cascade:
+1. Active environment's `mcp_endpoint` / `mcp_token_path`
+   (`--env` > `TENTACULAR_ENV` > `default_env`)
+2. Global `mcp.endpoint` / `mcp.token_path`
+3. `TNTC_MCP_ENDPOINT` / `TNTC_MCP_TOKEN` env vars
 
 ## Agent Workflow Guide
 

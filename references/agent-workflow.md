@@ -135,13 +135,10 @@ is explicitly confirmed.
 
 ### Step 5: Pre-Validate Before Implementation Work
 
-Ensure the MCP server is bootstrapped, then run lightweight
-checks before coding/deploying:
+Ensure the MCP server is installed (via Helm) and configured,
+then run lightweight checks before coding/deploying:
 
 ```bash
-# Ensure MCP server is installed (one-time per cluster)
-tntc cluster install
-
 # Validate cluster targets via MCP
 tntc cluster check -n <dev-namespace>
 tntc cluster check -n <prod-namespace>
@@ -241,6 +238,42 @@ tntc run my-wf -n <namespace> -o json
 tntc undeploy my-wf -n <namespace> -y
 ```
 
+## Promotion Workflow
+
+Promotion between environments is an agent process.
+There is no `tntc promote` command. The agent uses
+existing CLI commands with different `--env` targets,
+gated by health verification.
+
+### Steps
+
+1. **Deploy to dev**: `tntc deploy --env dev my-wf`
+2. **Verify health**: Use MCP `wf_health` tool (or
+   `tntc status --env dev --detail`) to confirm GREEN.
+3. **Run in dev**: `tntc run my-wf --env dev` to confirm
+   end-to-end behavior.
+4. **Health gate**: Do NOT proceed to prod unless dev
+   shows GREEN status. If amber or red, diagnose first.
+5. **Deploy to prod**: `tntc deploy --env prod my-wf`
+6. **Verify prod**: `tntc status --env prod --detail`
+   and optionally `tntc run --env prod` to confirm.
+
+### Key Rules
+
+- **Secrets are separate**: Prod secrets must be
+  provisioned independently. Deploying to prod does
+  NOT copy dev secrets.
+- **Per-env MCP config**: Each environment targets its
+  own MCP server instance. The `--env` flag resolves
+  `mcp_endpoint` and `mcp_token_path` from the
+  environment config.
+- **Same source**: Both environments deploy from the
+  same local workflow directory. Environment-specific
+  settings (namespace, image, runtime_class) come from
+  the config.
+- **No implicit rollback**: If prod fails, diagnose
+  with `tntc logs --env prod` and MCP health tools.
+
 ## Image Tag Cascade
 
 The CLI resolves the engine image in this order:
@@ -318,10 +351,10 @@ for remediation steps.
 ## Common Gotchas for Agents
 
 1. **MCP server must be installed**: All cluster
-   commands require a running MCP server. Run
-   `tntc cluster install` first. If MCP is not
-   configured, commands fail with:
-   `MCP server not configured; run tntc cluster install first`
+   commands require a running MCP server (installed
+   via Helm). If MCP is not configured, commands fail
+   with:
+   `MCP server not configured; set mcp_endpoint in your environment config or TNTC_MCP_ENDPOINT`
 
 2. **undeploy needs confirmation**: Always pass `-y`
    in non-interactive scripts. Without it, the command
@@ -381,30 +414,32 @@ for remediation steps.
 The CLI delegates all cluster operations to the MCP
 server. The handoff pattern:
 
-1. **Bootstrap** (`tntc cluster install`): The only
-   command that talks directly to the K8s API. Deploys
-   the MCP server, generates a bearer token, and saves
-   the MCP endpoint and token to
-   `~/.tentacular/config.yaml`.
+1. **MCP server install** (via Helm chart): A one-time
+   cluster setup step. The CLI has no direct K8s API
+   access.
 
-2. **All other commands**: Resolve the MCP client from
-   config (env vars > project config > user config).
-   If MCP is not configured, commands fail with an
-   actionable error message.
+2. **Per-env MCP config**: Each environment specifies
+   its own `mcp_endpoint` and `mcp_token_path`. The CLI
+   resolves the active environment from `--env` >
+   `TENTACULAR_ENV` > `default_env` > global config.
 
-3. **Error handling**: MCP errors include hints:
+3. **All commands**: Resolve the MCP client from the
+   active environment config. If MCP is not configured,
+   commands fail with an actionable error message.
+
+4. **Error handling**: MCP errors include hints:
    - Server unavailable: check MCP deployment
-   - Unauthorized: regenerate token
+   - Unauthorized: check mcp_token_path or TNTC_MCP_TOKEN
    - Forbidden: namespace guard rejection
 
 ## Zero-Admin Deploy Recipe
 
-After the one-time `tntc cluster install`, workflows
+After MCP server installation (via Helm), workflows
 can be deployed without admin kubeconfig access:
 
 ```bash
-# One-time bootstrap (requires admin kubeconfig)
-tntc cluster install
+# One-time MCP install (requires admin kubeconfig, via Helm)
+# helm install tentacular-mcp charts/tentacular-mcp ...
 
 # From here on, no admin kubeconfig needed:
 tntc validate ~/workspace/tentacles/my-workflow
