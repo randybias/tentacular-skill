@@ -199,7 +199,7 @@ flags are needed.
 
 ## MCP Tools Reference
 
-The tentacular MCP server exposes 31 tools organized into
+The tentacular MCP server exposes 33 tools organized into
 12 groups. These tools are available directly from an AI
 agent session -- no `tntc` CLI or `KUBECONFIG` needed.
 
@@ -305,6 +305,30 @@ deployment in a namespace.
 |-----------|------|----------|-------------|
 | `namespace` | string | Yes | Namespace containing the workflow resources. |
 | `name` | string | Yes | Deployment name to check status for. |
+
+#### wf_restart
+
+Perform a rollout restart of a deployment in a managed
+namespace by patching the pod template with a
+`tentacular.io/restartedAt` annotation (same mechanism
+as `kubectl rollout restart`).
+
+Common use cases:
+- **ConfigMap/Secret changes:** K8s does not auto-restart
+  pods when mounted ConfigMaps or Secrets change.
+- **Stuck/degraded recovery:** pods in CrashLoopBackOff
+  or degraded state are replaced gracefully.
+- **Post-credential rotation:** after `cred_rotate`
+  invalidates prior ServiceAccount tokens, running
+  deployments need a restart to obtain fresh tokens.
+- **gVisor enablement:** after `gvisor_annotate_ns`
+  annotates a namespace, existing pods continue on the
+  old runtime. A restart forces new pods onto gVisor.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace of the deployment. |
+| `name` | string | Yes | Deployment name to restart. |
 
 ### Workflow Observability
 
@@ -461,6 +485,19 @@ quota summary, and limit range summary.
 |-----------|------|----------|-------------|
 | `name` | string | Yes | Name of the namespace to get. |
 
+#### ns_update
+
+Update labels, annotations, and/or resource quota preset
+on a tentacular-managed namespace. Rejects changes to the
+`managed-by` label. Requires at least one update field.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `name` | string | Yes | Name of the namespace to update. |
+| `labels` | map | No | Labels to add or update. |
+| `annotations` | map | No | Annotations to add or update. |
+| `quota_preset` | string | No | New resource quota preset: `small`, `medium`, or `large`. |
+
 #### ns_list
 
 List all namespaces managed by tentacular.
@@ -548,8 +585,10 @@ No parameters.
 #### audit_rbac
 
 Audit RBAC in a namespace: scan for wildcard
-verbs/resources, sensitive access, and
+verbs/resources, sensitive access, privilege escalation
+verbs (bind, escalate, impersonate), and
 ClusterRoleBindings targeting namespace service accounts.
+All findings include actionable remediation suggestions.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -558,8 +597,11 @@ ClusterRoleBindings targeting namespace service accounts.
 #### audit_netpol
 
 Audit network policies in a namespace: check for
-default-deny policy, missing egress restrictions, and
-list all policies.
+default-deny policy, missing egress restrictions,
+overly broad allow rules (empty peers that negate
+default-deny), cross-namespace ingress via empty
+namespaceSelector, and list all policies. All findings
+include actionable remediation suggestions.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -568,8 +610,11 @@ list all policies.
 #### audit_psa
 
 Audit Pod Security Admission labels on a namespace:
-check enforce/audit/warn levels and flag non-restricted
-or missing configuration.
+check enforce/audit/warn levels, distinguish privileged
+(high severity) from baseline (medium severity),
+detect audit/warn level mismatches against enforce, and
+flag non-restricted or missing configuration. All
+findings include actionable remediation suggestions.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
@@ -584,14 +629,15 @@ cluster.
 
 No parameters.
 
-#### gvisor_apply
+#### gvisor_annotate_ns
 
-Apply the gVisor runtime class annotation to a managed
-namespace.
+Annotate a managed namespace with the gVisor runtime
+class annotation. Existing pods continue on the old
+runtime; use `wf_restart` to force new pods onto gVisor.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `namespace` | string | Yes | Namespace to apply gVisor runtime class annotation to. |
+| `namespace` | string | Yes | Namespace to annotate with gVisor runtime class. |
 
 #### gvisor_verify
 
