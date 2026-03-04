@@ -25,19 +25,25 @@ tntc configure --registry <registry-url>   # e.g. ghcr.io/username
 registry: ghcr.io/your-org
 namespace: default
 runtime_class: gvisor
+default_env: dev
+
+mcp:
+  endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
+  token_path: ~/.tentacular/mcp-token
 
 environments:
   dev:
-    context: kind-local          # kubeconfig context name
     namespace: tentacular-dev
     runtime_class: ""            # no gVisor for kind
-    image: ghcr.io/randybias/tentacular-engine:latest   # canonical default — keep unless told otherwise
+    image: ghcr.io/randybias/tentacular-engine:latest   # canonical default -- keep unless told otherwise
+    mcp_endpoint: http://localhost:8080    # port-forwarded to kind cluster
+    mcp_token_path: ~/.tentacular/mcp-token
   prod:
-    kubeconfig: ~/secrets/prod.kubeconfig
-    context: prod-admin
     namespace: tentacular-prod
     runtime_class: gvisor
-    image: ghcr.io/randybias/tentacular-engine:latest   # canonical default — keep unless told otherwise
+    image: ghcr.io/randybias/tentacular-engine:latest   # canonical default -- keep unless told otherwise
+    mcp_endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
+    mcp_token_path: ~/.tentacular/prod-mcp-token
 ```
 
 **Always use `ghcr.io/randybias/tentacular-engine:latest` as the `image:` value in each environment unless the user explicitly specifies a different registry or version.** This is the canonical pre-built engine image. Do not omit it, do not substitute a custom tag, and do not run `tntc build --push` to produce a workflow-specific image — the engine image is workflow-agnostic and shared across all workflows.
@@ -61,18 +67,11 @@ Before leaving this phase, confirm:
 - [ ] At least one environment is defined under `environments:`
 - [ ] `tntc cluster check` passes for the target environment
 
-`tntc cluster check` does not support `--env`. Resolve the kubeconfig and namespace
-from the config file and pass them explicitly:
+`tntc cluster check` routes through the MCP server. Ensure the
+MCP endpoint is configured for your target environment, then run:
 
 ```bash
-# Read your environment's kubeconfig + namespace from config:
-cat ~/.tentacular/config.yaml
-
-# Then run (expand ~ manually to the full path):
-KUBECONFIG=/full/path/to/kubeconfig tntc cluster check -n <namespace>
-
-# If the namespace or RBAC doesn't exist yet, use --fix to create them:
-KUBECONFIG=/full/path/to/kubeconfig tntc cluster check -n <namespace> --fix
+tntc cluster check -n <namespace>
 ```
 
 | cluster check result | Action |

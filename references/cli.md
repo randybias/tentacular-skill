@@ -4,13 +4,15 @@ Complete reference for `tntc` commands, flags, and configuration.
 
 ## Architecture
 
-`tntc cluster install` is the **only** command that
-communicates directly with the Kubernetes API. It
-deploys the tentacular-mcp server and saves connection
-details to `~/.tentacular/config.yaml`. All other
+The CLI has no direct Kubernetes API access. All
 cluster-facing commands (`deploy`, `run`, `list`,
-`status`, `logs`, `undeploy`, `audit`, `cluster check`)
-route through the MCP server.
+`status`, `logs`, `undeploy`, `audit`, `cluster check`,
+`cluster profile`) route through the MCP
+server. The MCP server is installed separately via its
+Helm chart. MCP connection details are configured
+per-environment in `~/.tentacular/config.yaml` or via
+`TNTC_MCP_ENDPOINT` / `TNTC_MCP_TOKEN` environment
+variables.
 
 ## Command Reference
 
@@ -31,7 +33,6 @@ route through the MCP server.
 | `logs` | `tntc logs <name>` | `-n` namespace, `--tail` | View workflow pod logs via MCP (snapshot only; `--follow` not supported through MCP, use `kubectl logs -f`) |
 | `list` | `tntc list` | `-n` namespace, `-o` json | List all deployed workflows via MCP with version, status, and age |
 | `undeploy` | `tntc undeploy <name>` | `-n` namespace, `--yes`/`-y` | Remove a deployed workflow via MCP. Use `-y` to skip confirmation. |
-| `cluster install` | `tntc cluster install` | `--namespace`, `--image`, `--module-proxy`, `--proxy-storage`, `--proxy-pvc-size`, `--proxy-image`, `--wait` | Bootstrap: deploy MCP server and module proxy to cluster. The ONLY command using direct K8s API. Saves MCP endpoint and token to `~/.tentacular/config.yaml`. |
 | `cluster check` | `tntc cluster check` | `-n` namespace, `-o` json | Preflight validation of cluster readiness via MCP |
 | `visualize` | `tntc visualize [dir]` | `--rich`, `--write` | Generate Mermaid diagram of the workflow DAG. `--rich` adds dependency graph, derived secrets, and network intent. `--write` writes `workflow-diagram.md` and `contract-summary.md` to the workflow directory. |
 
@@ -55,27 +56,32 @@ CLI `-n`.
 - `.tentacular/config.yaml` (project-level)
 - Project overrides user.
 
-### Bootstrap Config (Recommended)
+### Recommended Config
 
-Run `tntc cluster install` to bootstrap the MCP server.
-This auto-configures `~/.tentacular/config.yaml` with
-the MCP endpoint and token. Then set a registry and
-environment image:
+Install the MCP server via Helm, then configure the
+CLI with the MCP endpoint and token:
 
 ```yaml
 registry: ghcr.io/randybias
 namespace: default
 runtime_class: gvisor
+default_env: dev
 
-# Auto-populated by tntc cluster install:
 mcp:
   endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
   token_path: ~/.tentacular/mcp-token
 
 environments:
+  dev:
+    namespace: tentacular-dev
+    mcp_endpoint: http://localhost:8080
+    mcp_token_path: ~/.tentacular/mcp-token
   prod:
+    namespace: tentacular-prod
     image: ghcr.io/randybias/tentacular-engine:latest
     runtime_class: gvisor
+    mcp_endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
+    mcp_token_path: ~/.tentacular/prod-mcp-token
 ```
 
 For this repository, the canonical public engine image is:
@@ -87,40 +93,46 @@ the internal default `tentacular-engine:latest`.
 
 ### MCP Configuration
 
-MCP connection is configured automatically by
-`tntc cluster install`. For manual or CI/CD setup:
+MCP connection is resolved per-environment:
 
 | Config Field | Env Var | Description |
 |-------------|---------|-------------|
-| `mcp.endpoint` | `TNTC_MCP_ENDPOINT` | MCP server URL |
-| `mcp.token_path` | -- | Path to bearer token file |
+| `environments.<name>.mcp_endpoint` | -- | Per-env MCP server URL |
+| `environments.<name>.mcp_token_path` | -- | Per-env path to bearer token file |
+| `mcp.endpoint` | `TNTC_MCP_ENDPOINT` | Global MCP server URL (fallback) |
+| `mcp.token_path` | -- | Global path to bearer token file |
 | -- | `TNTC_MCP_TOKEN` | Bearer token value (overrides token_path) |
 
-Resolution order: environment variables > project config
-> user config.
+Resolution order: active environment config >
+global config > environment variables.
 
-### Cluster Access per Environment
+### Per-Environment MCP Access
 
-Each environment can specify cluster access using **either**
-`kubeconfig` or `context` (or both). These are used only
-during the `tntc cluster install` bootstrap step:
+Each environment can specify its own MCP endpoint and
+token, enabling the CLI to work with multiple clusters
+without direct kubeconfig access:
 
 | Field | Description |
 |-------|-------------|
-| `kubeconfig` | Path to a standalone kubeconfig file. `~` is expanded to home directory. |
-| `context` | Context name. With `kubeconfig`: selects a context within that file. Without: selects a context in the default kubeconfig (`~/.kube/config` or `$KUBECONFIG`). |
-
-After bootstrap, all commands route through MCP and do
-not require direct kubeconfig access.
+| `mcp_endpoint` | MCP server URL for this environment |
+| `mcp_token_path` | Path to bearer token file. `~` is expanded to home directory. |
 
 ```yaml
+default_env: dev
+
 environments:
   dev:
     namespace: tentacular-dev
+    mcp_endpoint: http://localhost:8080
+    mcp_token_path: ~/.tentacular/mcp-token
   staging:
     namespace: staging-workflows
+    mcp_endpoint: http://staging-mcp:8080
+    mcp_token_path: ~/.tentacular/staging-token
   prod:
     namespace: tentacular-prod
+    mcp_endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
+    mcp_token_path: ~/.tentacular/prod-token
 ```
 
 ## Visualization Reference
