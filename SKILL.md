@@ -165,20 +165,23 @@ local directory.
   configs must never end up there
 - Workflows are operational artifacts, not source code
   for the tool itself
-- `example-workflows/` in the repo are reference
-  implementations only — copy them to your tentacles
-  directory to customize and deploy
+- Production-ready templates are available via the
+  [tentacular-catalog](https://github.com/randybias/tentacular-catalog)
+  — use `tntc catalog init` to scaffold from them
 
-**When building a new workflow**, always create it in the
-tentacles directory, not in the repo. Use
-`example-workflows/` as templates if helpful, but the
-working copy lives in tentacles.
+**When building a new workflow**, use `tntc init <name>`
+for a blank scaffold or `tntc catalog init <template> <name>`
+to start from a production template. The working copy
+lives in your tentacles directory.
 
-> ⚠️ **NEVER deploy from `example-workflows/`** — those
-> are read-only reference implementations. If a workflow
-> was accidentally deployed from there, move the source to
-> `~/workspace/tentacles/<name>/`, verify `.secrets.yaml`
-> is present there, and redeploy from the new location.
+```bash
+# Browse available templates
+tntc catalog list
+tntc catalog search monitoring
+
+# Scaffold from a template
+tntc catalog init hn-digest my-news-digest
+```
 
 ## Querying Running Workflows
 

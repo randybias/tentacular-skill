@@ -143,7 +143,7 @@ environments:
 ### Basic Mode
 
 ```bash
-tntc visualize example-workflows/sep-tracker
+tntc visualize sep-tracker
 ```
 
 Produces a Mermaid diagram of the DAG topology
@@ -152,7 +152,7 @@ Produces a Mermaid diagram of the DAG topology
 ### Rich Mode
 
 ```bash
-tntc visualize --rich example-workflows/sep-tracker
+tntc visualize --rich sep-tracker
 ```
 
 Rich output includes:
@@ -171,7 +171,7 @@ for diffs.
 ### Write Mode
 
 ```bash
-tntc visualize --rich --write example-workflows/sep-tracker
+tntc visualize --rich --write sep-tracker
 ```
 
 The `--write` flag writes artifacts to the workflow
@@ -190,7 +190,7 @@ review gate to persist artifacts for commit.
 
 ### Example: sep-tracker Workflow Diagram
 
-![sep-tracker workflow diagram](../../example-workflows/sep-tracker/workflow-diagram.png)
+<!-- sep-tracker workflow diagram available after: tntc catalog init sep-tracker && tntc visualize --rich --write sep-tracker -->
 
 The sep-tracker workflow demonstrates a full contract
 with four external dependencies (GitHub API, Postgres,
