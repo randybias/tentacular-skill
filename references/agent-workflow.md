@@ -10,16 +10,15 @@ to stdout.
 
 Production workflows (**tentacles**) are stored outside
 the tentacular repo in a dedicated local directory (e.g.,
-`~/workspace/tentacles/<workflow-name>/`). The repo's
-`example-workflows/` directory contains reference
-implementations only — never deploy directly from it.
+`~/workspace/tentacles/<workflow-name>/`).
 
-When creating a new workflow, always scaffold it in the
-tentacles directory. Copy from `example-workflows/` as
-a starting template if useful, but the working copy
-belongs in tentacles. Secrets (`.secrets.yaml`) are kept
-alongside the workflow and must never be committed to
-any repository.
+When creating a new workflow, use `tntc init <name>` for a
+blank scaffold or `tntc catalog init <template> <name>` to
+start from a production-ready template in the
+[tentacular-catalog](https://github.com/randybias/tentacular-catalog).
+The working copy belongs in tentacles. Secrets
+(`.secrets.yaml`) are kept alongside the workflow and must
+never be committed to any repository.
 
 All `tntc` commands accept a path argument and work
 identically whether the workflow is inside or outside
@@ -211,25 +210,25 @@ integration behavior, not mock-only.
 
 ```bash
 # 1. Validate spec + contract
-tntc validate example-workflows/my-wf -o json
+tntc validate my-wf -o json
 
 # 2. Persist and review contract artifacts with user
-tntc visualize --rich --write example-workflows/my-wf
+tntc visualize --rich --write my-wf
 
 # 3. Mock tests + drift detection (no cluster needed)
-tntc test example-workflows/my-wf -o json
+tntc test my-wf -o json
 
 # 4. Build container image
-tntc build example-workflows/my-wf \
+tntc build my-wf \
   -t tentacular-engine:my-wf
 
 # 5. Live test on dev (deploy -> run -> validate -> cleanup)
 tntc test --live --env dev \
-  example-workflows/my-wf -o json
+  my-wf -o json
 
 # 6. Deploy to target environment
 tntc deploy --env prod \
-  example-workflows/my-wf -o json
+  my-wf -o json
 
 # 7. Post-deploy run
 tntc run my-wf -n <namespace> -o json
@@ -319,13 +318,13 @@ override environment values:
 
 ```bash
 # Use everything from prod environment config
-tntc deploy --env prod example-workflows/my-wf
+tntc deploy --env prod my-wf
 
 # Override namespace from environment
-tntc deploy --env prod -n custom-ns example-workflows/my-wf
+tntc deploy --env prod -n custom-ns my-wf
 
 # Force deploy (skip live test gate)
-tntc deploy --env prod --force example-workflows/my-wf
+tntc deploy --env prod --force my-wf
 ```
 
 ## Fresh Deploy vs. Update
