@@ -31,6 +31,13 @@ cp -r . ~/.openclaw/workspace/skills/tentacular
 
 Skill versions track CLI versions. Skill `v0.1.x` documents CLI `v0.1.x` features.
 
+## Related Repositories
+
+| Repository | Purpose |
+|------------|---------|
+| [tentacular](https://github.com/randybias/tentacular) | Go CLI (`tntc`) + Deno workflow engine |
+| [tentacular-mcp](https://github.com/randybias/tentacular-mcp) | In-cluster MCP server (Helm chart, 32 tools) |
+
 ## License
 
 MIT — Copyright (c) 2026 Mirantis, Inc. See [LICENSE](LICENSE).
