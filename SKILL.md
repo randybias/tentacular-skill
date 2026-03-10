@@ -891,7 +891,11 @@ The user must authenticate before deploying:
 2. `tntc login` initiates a browser-based login via
    Google SSO through Keycloak. The CLI opens the
    browser automatically or prints a URL if browser
-   launch fails.
+   launch fails. Google SSO is restricted to an
+   administrator-configured domain (set via the
+   Keycloak Google IdP `Hosted Domain` parameter).
+   Only Google accounts from the allowed domain can
+   authenticate.
 3. `tntc whoami` confirms the authenticated identity.
 4. Once logged in, subsequent `tntc deploy` commands
    include the OIDC token automatically.
@@ -1046,6 +1050,10 @@ server must meet these requirements:
   workflows can use `tentacular-rustfs`. The MCP server
   attempts to create it on startup, but the admin user
   must have bucket-creation permissions.
+- **SPIRE:** The MCP service account's ClusterRole must
+  include permissions for `spire.spiffe.io` resources
+  (e.g., `clusterspiffeids`). The Helm chart includes
+  this by default, but verify on live clusters.
 
 ### Cleanup Behavior
 

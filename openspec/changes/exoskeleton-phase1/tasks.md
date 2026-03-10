@@ -41,3 +41,8 @@
 - [x] Add note that NATS SPIFFE mode requires cluster-level NATS TLS configuration
 - [x] Update references/contract.md if NATS shared token mentioned as limitation
 - [x] Update references/agent-workflow.md if NATS shared token mentioned as limitation
+
+## Step 9: Final Documentation Sweep (Post-E2E)
+- [x] Document Google SSO domain restriction in SKILL.md Authentication section
+- [x] Add SPIRE ClusterRole prerequisite (`spire.spiffe.io` permissions) to SKILL.md Prerequisites
+- [x] All documentation tasks complete and aligned with E2E validation results
