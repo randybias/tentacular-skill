@@ -28,7 +28,10 @@ variables.
 | `configure` | `tntc configure` | `--registry`, `--namespace`, `--runtime-class`, `--project` | Set default config (user-level or project-level) |
 | `secrets check` | `tntc secrets check [dir]` | | Check secrets provisioning against node requirements |
 | `secrets init` | `tntc secrets init [dir]` | `--force` | Initialize .secrets.yaml from .secrets.yaml.example |
-| `status` | `tntc status <name>` | `-n` namespace, `-o` json, `--detail` | Check deployment status via MCP; `--detail` shows pods, events |
+| `login` | `tntc login` | | Authenticate with the MCP server via OIDC (Device Authorization Grant through Keycloak/Google SSO). Opens browser for login. Stores tokens at `~/.tentacular/auth-token`. Required when exoskeleton auth is enabled. |
+| `logout` | `tntc logout` | | Clear the locally stored OIDC auth token. After logout, `tntc deploy` and other auth-gated commands require `tntc login` again. |
+| `whoami` | `tntc whoami` | `-o` json | Display the current authenticated identity: email, issuer, token expiry. Returns an error if not logged in. |
+| `status` | `tntc status <name>` | `-n` namespace, `-o` json, `--detail` | Check deployment status via MCP; `--detail` shows pods, events, and deployer provenance annotations |
 | `run` | `tntc run <name>` | `-n` namespace, `--timeout` | Trigger a deployed workflow via MCP and return JSON result |
 | `logs` | `tntc logs <name>` | `-n` namespace, `--tail` | View workflow pod logs via MCP (snapshot only; `--follow` not supported through MCP, use `kubectl logs -f`) |
 | `list` | `tntc list` | `-n` namespace, `-o` json | List all deployed workflows via MCP with version, status, and age |
@@ -105,6 +108,45 @@ MCP connection is resolved per-environment:
 
 Resolution order: active environment config >
 global config > environment variables.
+
+### Authentication (SSO / OIDC)
+
+When the MCP server has exoskeleton auth enabled
+(`TENTACULAR_EXOSKELETON_AUTH_ENABLED=true`), the CLI
+supports OIDC-based authentication via `tntc login`.
+
+**Login flow:**
+
+```bash
+tntc login                 # opens browser for Google SSO via Keycloak
+tntc whoami                # show current identity (email, issuer, expiry)
+tntc whoami -o json        # structured output
+tntc logout                # clear local token
+```
+
+**Token storage:** `~/.tentacular/auth-token` (access
+token + refresh token). The CLI checks token expiry
+before each request and refreshes automatically using
+the refresh token. If the refresh token has expired,
+the CLI exits with a message to re-run `tntc login`.
+
+**Coexistence with bearer tokens:** When both OIDC and
+bearer token are available, the CLI prefers the OIDC
+token. Bearer token auth (`TNTC_MCP_TOKEN` or
+`mcp_token_path`) continues to work for CI/CD and
+automation pipelines where interactive login is not
+possible.
+
+**Deployer provenance:** When authenticated via OIDC,
+deployments record the deployer's identity as
+annotations on the Deployment manifest:
+
+- `tentacular.io/deployed-by` -- deployer email
+- `tentacular.io/deployed-at` -- deployment timestamp
+- `tentacular.io/deployed-via` -- agent type
+
+These are visible in `tntc status --detail` and in
+`wf_describe` MCP tool output.
 
 ### Per-Environment MCP Access
 

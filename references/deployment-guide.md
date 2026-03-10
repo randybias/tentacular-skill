@@ -534,6 +534,73 @@ mcp:
 See the [tentacular-mcp README](https://github.com/randybias/tentacular-mcp)
 for Helm values and deployment options.
 
+## SSO Authentication Configuration
+
+When deploying with the exoskeleton in enterprise mode,
+the MCP server supports OIDC-based authentication via
+Keycloak with Google SSO as the upstream identity
+provider.
+
+### Enabling SSO
+
+Add these Helm values (or environment variables) to the
+MCP server deployment:
+
+```env
+TENTACULAR_EXOSKELETON_AUTH_ENABLED=true
+TENTACULAR_KEYCLOAK_ISSUER=https://auth.<cluster>.<domain>/realms/tentacular
+TENTACULAR_KEYCLOAK_CLIENT_ID=tentacular-mcp
+TENTACULAR_KEYCLOAK_CLIENT_SECRET=<secret>
+TENTACULAR_KEYCLOAK_REDIRECT_URI=https://mcp.<cluster>.<domain>/auth/callback
+TENTACULAR_DEPLOY_APPROVAL_MODE=if_needed
+TENTACULAR_EXOSKELETON_SHORTCODE_ENABLED=true
+```
+
+### Keycloak Requirements
+
+- Realm `tentacular` with a confidential client
+  `tentacular-mcp`
+- Device Authorization Grant enabled on the client
+- Google configured as an identity provider in the realm
+- HTTPS ingress for Keycloak at
+  `auth.<cluster>.<domain>` (required for Google OAuth
+  redirect URIs)
+
+### CLI Setup
+
+After SSO is enabled on the server, users authenticate
+with:
+
+```bash
+tntc login           # browser opens for Google SSO
+tntc whoami          # verify identity
+tntc deploy my-wf    # deploys with OIDC token
+```
+
+Token refresh is automatic. If the refresh token
+expires, the CLI prompts the user to re-run
+`tntc login`.
+
+### Disabling SSO
+
+Set `TENTACULAR_EXOSKELETON_AUTH_ENABLED=false` on the
+MCP server. Bearer-token auth remains active. SSO can
+be disabled independently of other exoskeleton services
+(Postgres, NATS, RustFS registration continues to work
+without auth).
+
+### Deployer Provenance
+
+When SSO is enabled, successful deployments annotate
+the Deployment manifest with:
+
+- `tentacular.io/deployed-by` -- deployer email
+- `tentacular.io/deployed-at` -- deployment timestamp
+- `tentacular.io/deployed-via` -- agent type (cli, etc.)
+
+These annotations are visible via `tntc status --detail`
+and `wf_describe`.
+
 ## Cluster Check
 
 ```bash

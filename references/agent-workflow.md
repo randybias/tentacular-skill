@@ -84,6 +84,13 @@ disabled, configure dependencies manually with explicit
 host, port, and auth. Ask the user which approach to
 use when the choice is ambiguous.
 
+**Auth pre-check:** If `exo_status` returns
+`auth_enabled: true`, the user must authenticate
+before deploying. Instruct them to run `tntc login`
+and verify with `tntc whoami`. Token refresh is
+automatic, but if the refresh token has expired the
+user must re-run `tntc login`.
+
 If any dependency is uncertain, stop and ask. Do not
 proceed with guessed endpoints, guessed credentials,
 or placeholder resources unless explicitly requested
@@ -221,6 +228,11 @@ integration behavior, not mock-only.
 ## Full E2E Cycle (Non-Interactive)
 
 ```bash
+# 0. If exoskeleton auth is enabled, authenticate first
+#    Check with exo_status MCP tool -- if auth_enabled is true:
+tntc login
+tntc whoami  # confirm identity
+
 # 1. Validate spec + contract
 tntc validate my-wf -o json
 

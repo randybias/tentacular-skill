@@ -668,14 +668,17 @@ identity.
 Check exoskeleton service availability on the cluster.
 Returns the enabled/disabled state of each exoskeleton
 service (Postgres, NATS, RustFS) and whether the
-exoskeleton is enabled overall. Call this before adding
-`tentacular-*` dependencies to a workflow contract.
+exoskeleton is enabled overall. Also reports auth/SSO
+status. Call this before adding `tentacular-*`
+dependencies to a workflow contract.
 
 No parameters.
 
 Returns: `enabled` (bool), `cleanup_on_undeploy` (bool),
 `postgres_available` (bool), `nats_available` (bool),
-`rustfs_available` (bool).
+`rustfs_available` (bool), `auth_enabled` (bool),
+`auth_issuer` (string, Keycloak OIDC issuer URL when
+auth is enabled).
 
 #### exo_registration
 
@@ -871,7 +874,43 @@ credential provisioning.
 Always call `exo_status` before building a workflow
 that needs database, messaging, or object storage.
 The response indicates which exoskeleton services are
-enabled on the cluster.
+enabled on the cluster. It also reports `auth_enabled`
+and `auth_issuer` -- use these to determine whether
+SSO login is required before deploying.
+
+### Authentication and SSO
+
+When `exo_status` returns `auth_enabled: true`, the
+cluster requires OIDC authentication for deployments.
+The user must authenticate before deploying:
+
+1. Check auth status: if `exo_status` shows
+   `auth_enabled: true`, instruct the user to run
+   `tntc login` before deploying.
+2. `tntc login` initiates a browser-based login via
+   Google SSO through Keycloak. The CLI opens the
+   browser automatically or prints a URL if browser
+   launch fails.
+3. `tntc whoami` confirms the authenticated identity.
+4. Once logged in, subsequent `tntc deploy` commands
+   include the OIDC token automatically.
+5. `tntc logout` clears the local auth token.
+
+Token refresh is automatic. If the refresh token
+expires, the CLI prompts the user to run `tntc login`
+again.
+
+### Deployer Provenance
+
+When SSO auth is active, the MCP server annotates
+Deployment manifests with deployer identity:
+
+- `tentacular.io/deployed-by`: deployer email
+- `tentacular.io/deployed-at`: deployment timestamp
+- `tentacular.io/deployed-via`: agent type (cli, etc.)
+
+These annotations are visible in `wf_describe` output.
+Use this to verify who deployed a workflow and when.
 
 ### When to Use `tentacular-*` Dependencies
 
@@ -958,6 +997,23 @@ const pg = ctx.dependency("my-postgres");
 - A workflow with `tentacular-*` dependencies WILL FAIL
   on a cluster without the exoskeleton. This is by design,
   not a bug. The error message is explicit.
+- If `exo_status` returns `auth_enabled: true`, instruct
+  the user to run `tntc login` BEFORE deploying. A deploy
+  without a valid OIDC token will fail with an
+  authentication error when auth is enabled.
+
+### Deploy Decision Tree
+
+Before deploying a workflow with exoskeleton dependencies:
+
+1. Call `exo_status` to check service availability.
+2. If `auth_enabled` is `true`:
+   a. Ask the user to run `tntc whoami` to check login.
+   b. If not logged in, instruct: `tntc login`.
+   c. Confirm identity with `tntc whoami`.
+3. Verify required services are available (e.g.,
+   `postgres_available`, `nats_available`).
+4. Proceed with `tntc deploy`.
 
 ### Known Limitations (Phase 1)
 
