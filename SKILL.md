@@ -1038,17 +1038,39 @@ server must meet these requirements:
 
 ### Cleanup Behavior
 
-When `cleanup_on_undeploy` is true, `wf_remove` drops
+`cleanup_on_undeploy` defaults to `false`. When cleanup
+is disabled (the default), `wf_remove` deletes only
+Kubernetes resources. All backing-service data -- Postgres
+schemas, RustFS objects, NATS artifacts -- is preserved.
+A subsequent deploy of the same workflow reconnects to
+the existing data.
+
+When `cleanup_on_undeploy` is `true`, `wf_remove` drops
 exoskeleton resources for the workflow:
 
-- **Postgres:** Drops the workflow's schema and role.
+- **Postgres:** Drops the workflow's schema and role
+  (`DROP SCHEMA ... CASCADE`).
 - **RustFS:** Deletes the workflow's objects, service
   user, and access policies.
 - **NATS:** No-op in Phase 1 (shared token).
 
-This is destructive and intentional. Cleanup runs
+This is destructive and permanent. Cleanup runs
 best-effort for all configured services, not only those
 the workflow declared.
+
+**Agent decision before calling `wf_remove`:** When
+removing a workflow that has exoskeleton dependencies,
+first call `exo_status` and check `cleanup_on_undeploy`.
+If it is `true`, warn the user explicitly before
+proceeding:
+
+> Removing this workflow will permanently delete its
+> Postgres schema, RustFS objects, and NATS artifacts.
+> This cannot be undone. Do you want to proceed?
+
+Only call `wf_remove` after the user confirms. If
+`cleanup_on_undeploy` is `false`, no data-loss warning
+is needed -- only Kubernetes resources will be removed.
 
 ## Config Block
 
