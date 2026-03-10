@@ -33,3 +33,11 @@
 ## Step 7: Update References
 - [x] Update references/contract.md with tentacular-* protocol info
 - [x] Update references/agent-workflow.md with exo_status pre-check
+
+## Step 8: SPIRE and NATS SPIFFE Documentation Updates
+- [x] Update Known Limitations: replace shared-token caveat with SPIFFE mode note
+- [x] Update exo_status return fields: add `spire_available`, `nats_spiffe_enabled`
+- [x] Update cleanup behavior: NATS cleanup in SPIFFE mode removes authz ConfigMap entry
+- [x] Add note that NATS SPIFFE mode requires cluster-level NATS TLS configuration
+- [x] Update references/contract.md if NATS shared token mentioned as limitation
+- [x] Update references/agent-workflow.md if NATS shared token mentioned as limitation

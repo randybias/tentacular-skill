@@ -676,7 +676,8 @@ No parameters.
 
 Returns: `enabled` (bool), `cleanup_on_undeploy` (bool),
 `postgres_available` (bool), `nats_available` (bool),
-`rustfs_available` (bool), `auth_enabled` (bool),
+`rustfs_available` (bool), `spire_available` (bool),
+`nats_spiffe_enabled` (bool), `auth_enabled` (bool),
 `auth_issuer` (string, Keycloak OIDC issuer URL when
 auth is enabled).
 
@@ -1017,12 +1018,22 @@ Before deploying a workflow with exoskeleton dependencies:
 
 ### Known Limitations (Phase 1)
 
-> **NATS shared-token model:** The shared-token model
-> means any workflow with NATS access can
-> publish/subscribe to any subject -- the subject prefix
-> is convention-only, not enforced. This is a known
-> Phase 1 limitation. Per-user NATS JWT enforcement is
-> planned for Phase 2.
+> **NATS isolation model:** When SPIFFE mode is enabled
+> (`TENTACULAR_NATS_SPIFFE_ENABLED=true`), NATS subject
+> isolation is cryptographically enforced via mTLS with
+> SPIRE SVIDs and per-tentacle authorization rules. This
+> is the recommended configuration.
+>
+> Token mode is available as a fallback for clusters
+> without SPIRE. In token mode, subject isolation is
+> convention-only -- any workflow with NATS access can
+> publish/subscribe to any subject.
+>
+> **NATS SPIFFE mode requires cluster-level NATS TLS
+> configuration.** The NATS server must be configured
+> with TLS certificates, the SPIRE trust bundle, and
+> the `verify_and_map` directive. This is a manual
+> deployment step not automated by the registrar.
 
 ### Prerequisites
 
@@ -1052,7 +1063,8 @@ exoskeleton resources for the workflow:
   (`DROP SCHEMA ... CASCADE`).
 - **RustFS:** Deletes the workflow's objects, service
   user, and access policies.
-- **NATS:** No-op in Phase 1 (shared token).
+- **NATS:** Revokes credentials and auth artifacts. In
+  SPIFFE mode, removes the authorization ConfigMap entry.
 
 This is destructive and permanent. Cleanup runs
 best-effort for all configured services, not only those
