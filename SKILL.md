@@ -1026,18 +1026,26 @@ Before deploying a workflow with exoskeleton dependencies:
 > (`TENTACULAR_NATS_SPIFFE_ENABLED=true`), NATS subject
 > isolation is cryptographically enforced via mTLS with
 > SPIRE SVIDs and per-tentacle authorization rules. This
-> is the recommended configuration.
+> is the recommended configuration and is deployed on
+> `eastus-dev`.
+>
+> The NATS server TLS certificate is managed by
+> cert-manager via an internal CA
+> (`tentacular-internal-ca`). The server cert has 1-year
+> validity and is auto-renewed 30 days before expiry.
+> NATS trusts both the cert-manager CA (server cert
+> chain) and the SPIRE CA (client SVIDs) via a combined
+> trust bundle.
 >
 > Token mode is available as a fallback for clusters
 > without SPIRE. In token mode, subject isolation is
 > convention-only -- any workflow with NATS access can
 > publish/subscribe to any subject.
 >
-> **NATS SPIFFE mode requires cluster-level NATS TLS
-> configuration.** The NATS server must be configured
-> with TLS certificates, the SPIRE trust bundle, and
-> the `verify_and_map` directive. This is a manual
-> deployment step not automated by the registrar.
+> **Remaining manual step:** When SPIRE rotates its CA,
+> the combined trust bundle in the `nats-spire-ca`
+> Secret must be refreshed manually. A future sidecar
+> or CronJob will automate this sync.
 
 ### Prerequisites
 
