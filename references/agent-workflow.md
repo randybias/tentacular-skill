@@ -75,6 +75,22 @@ Enumerate all external dependencies and write the
 4. Environment-specific behavior (`dev` vs. `prod`)
 5. Required trigger scheduling and runtime behavior
 
+**Exoskeleton pre-check:** If the workflow needs
+database, messaging, or object storage, call
+`exo_status` (MCP tool) before authoring the contract.
+If exoskeleton services are enabled, use `tentacular-*`
+dependency names (only `protocol` required). If
+disabled, configure dependencies manually with explicit
+host, port, and auth. Ask the user which approach to
+use when the choice is ambiguous.
+
+**Auth pre-check:** If `exo_status` returns
+`auth_enabled: true`, the user must authenticate
+before deploying. Instruct them to run `tntc login`
+and verify with `tntc whoami`. Token refresh is
+automatic, but if the refresh token has expired the
+user must re-run `tntc login`.
+
 If any dependency is uncertain, stop and ask. Do not
 proceed with guessed endpoints, guessed credentials,
 or placeholder resources unless explicitly requested
@@ -141,6 +157,9 @@ then run lightweight checks before coding/deploying:
 # Validate cluster targets via MCP
 tntc cluster check -n <dev-namespace>
 tntc cluster check -n <prod-namespace>
+
+# If workflow uses tentacular-* deps, verify exoskeleton
+# Call exo_status MCP tool to confirm services are available
 
 # Validate workflow spec and contract
 tntc validate <workflow-dir>
@@ -209,6 +228,11 @@ integration behavior, not mock-only.
 ## Full E2E Cycle (Non-Interactive)
 
 ```bash
+# 0. If exoskeleton auth is enabled, authenticate first
+#    Check with exo_status MCP tool -- if auth_enabled is true:
+tntc login
+tntc whoami  # confirm identity
+
 # 1. Validate spec + contract
 tntc validate my-wf -o json
 

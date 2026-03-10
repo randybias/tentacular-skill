@@ -1,0 +1,10 @@
+name: exoskeleton-phase1
+status: in-progress
+description: >
+  Skill documentation updates for exoskeleton Phase 1: new Exoskeleton Services
+  section, updated decision tree, deploy checklist, contract model, MCP tools
+  reference, and anti-confusion guidance.
+artifacts:
+  - proposal
+  - design
+  - tasks
