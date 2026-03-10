@@ -1240,7 +1240,7 @@ tntc status my-workflow --env prod --detail
 
 - **Health gate**: The dev deployment MUST show GREEN
   health status before promoting to prod. Check with
-  `wf_health` (MCP tool) or `tntc status --detail`.
+  `wf_health` (MCP tool) or `tntc status`.
 - **Same source**: Both environments deploy from the
   same local workflow source. Per-env settings
   (namespace, image, runtime_class, MCP endpoint) come

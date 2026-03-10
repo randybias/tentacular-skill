@@ -598,8 +598,7 @@ the Deployment manifest with:
 - `tentacular.io/deployed-at` -- deployment timestamp
 - `tentacular.io/deployed-via` -- agent type (cli, etc.)
 
-These annotations are visible via `tntc status --detail`
-and `wf_describe`.
+Deployer provenance is visible via `wf_describe` (MCP tool) and `kubectl get deploy -o yaml`.
 
 ## Cluster Check
 

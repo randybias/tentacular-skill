@@ -31,7 +31,7 @@ variables.
 | `login` | `tntc login` | | Authenticate with the MCP server via OIDC (Device Authorization Grant through Keycloak/Google SSO). Opens browser for login. Stores tokens at `~/.tentacular/auth-token`. Required when exoskeleton auth is enabled. |
 | `logout` | `tntc logout` | | Clear the locally stored OIDC auth token. After logout, `tntc deploy` and other auth-gated commands require `tntc login` again. |
 | `whoami` | `tntc whoami` | `-o` json | Display the current authenticated identity: email, issuer, token expiry. Returns an error if not logged in. |
-| `status` | `tntc status <name>` | `-n` namespace, `-o` json, `--detail` | Check deployment status via MCP; `--detail` shows pods, events, and deployer provenance annotations |
+| `status` | `tntc status <name>` | `-n` namespace, `-o` json, `--detail` | Check deployment status via MCP; `--detail` shows pods and events. Deployer provenance is visible via `wf_describe` (MCP tool) and `kubectl get deploy -o yaml`. |
 | `run` | `tntc run <name>` | `-n` namespace, `--timeout` | Trigger a deployed workflow via MCP and return JSON result |
 | `logs` | `tntc logs <name>` | `-n` namespace, `--tail` | View workflow pod logs via MCP (snapshot only; `--follow` not supported through MCP, use `kubectl logs -f`) |
 | `list` | `tntc list` | `-n` namespace, `-o` json | List all deployed workflows via MCP with version, status, and age |
@@ -145,8 +145,7 @@ annotations on the Deployment manifest:
 - `tentacular.io/deployed-at` -- deployment timestamp
 - `tentacular.io/deployed-via` -- agent type
 
-These are visible in `tntc status --detail` and in
-`wf_describe` MCP tool output.
+Deployer provenance is visible via `wf_describe` (MCP tool) and `kubectl get deploy -o yaml`.
 
 ### Per-Environment MCP Access
 
