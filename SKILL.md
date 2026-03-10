@@ -133,6 +133,10 @@ out:
 - Installing the MCP server? **Helm chart**
 - Promoting between environments? **Agent workflow** (deploy dev, verify, deploy prod)
 - Agent session needing cluster info? **MCP tools**
+- Workflow needs database/messaging/storage? Check
+  `exo_status` first. If enabled, use `tentacular-*`
+  deps in the contract. If disabled, guide the user
+  through manual dependency setup.
 
 ---
 
@@ -207,8 +211,8 @@ No per-command MCP URL flags are needed.
 
 ## MCP Tools Reference
 
-The tentacular MCP server exposes 33 tools organized into
-12 groups. These tools are available directly from an AI
+The tentacular MCP server exposes 35 tools organized into
+13 groups. These tools are available directly from an AI
 agent session -- no `tntc` CLI or `KUBECONFIG` needed.
 
 Agents can discover all tools and their full parameter
@@ -657,6 +661,37 @@ identity.
 |-----------|------|----------|-------------|
 | `namespace` | string | Yes | Namespace in which to create the verification pod. |
 
+### Exoskeleton
+
+#### exo_status
+
+Check exoskeleton service availability on the cluster.
+Returns the enabled/disabled state of each exoskeleton
+service (Postgres, NATS, RustFS) and whether the
+exoskeleton is enabled overall. Call this before adding
+`tentacular-*` dependencies to a workflow contract.
+
+No parameters.
+
+Returns: `enabled` (bool), `cleanup_on_undeploy` (bool),
+`postgres_available` (bool), `nats_available` (bool),
+`rustfs_available` (bool).
+
+#### exo_registration
+
+Check the exoskeleton registration state of a deployed
+workflow. Shows which services the workflow is registered
+with and the current credential/scope status.
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `namespace` | string | Yes | Namespace of the workflow. |
+| `name` | string | Yes | Workflow deployment name. |
+
+Returns: `found` (bool), `namespace`, `name`,
+`data` (map of Secret key/value pairs, sensitive values
+redacted).
+
 ### Module Proxy
 
 #### proxy_status
@@ -805,6 +840,125 @@ modes, drift detection, dynamic-target dependencies,
 label-scoped ingress, and NetworkPolicy overrides, read
 [references/contract.md](references/contract.md).
 
+### Exoskeleton-Managed Dependencies
+
+Dependencies named with the `tentacular-` prefix are
+auto-provisioned by the MCP server's exoskeleton
+control plane. Only `protocol` is required -- host,
+port, database, user, and auth are filled automatically
+at deploy time. The MCP server rejects deployment if
+the requested exoskeleton service is disabled on the
+cluster.
+
+Known `tentacular-*` dependencies:
+
+| Name | Protocol | Service |
+|------|----------|---------|
+| `tentacular-postgres` | `postgresql` | Scoped Postgres schema and role |
+| `tentacular-nats` | `nats` | Scoped NATS subjects and credentials |
+| `tentacular-rustfs` | `s3` | Scoped RustFS prefix and credentials |
+
+## Exoskeleton Services
+
+The exoskeleton is an optional backing-service bundle
+(Postgres, NATS, RustFS) managed by the MCP server.
+When enabled, it provides deterministic, per-workflow
+scoped access to these services without manual
+credential provisioning.
+
+### Detection
+
+Always call `exo_status` before building a workflow
+that needs database, messaging, or object storage.
+The response indicates which exoskeleton services are
+enabled on the cluster.
+
+### When to Use `tentacular-*` Dependencies
+
+Use `tentacular-*` dependency names when `exo_status`
+shows the target service is enabled. The MCP server
+provisions scoped credentials and injects them
+automatically.
+
+### When to Use Manual Dependencies
+
+Use manually configured dependencies (with explicit
+host, port, auth) when:
+
+- The exoskeleton is disabled on the cluster
+- The service is external (not managed by the exoskeleton)
+- The user requires a specific external instance
+
+### Mixed Dependencies
+
+A single contract can combine exoskeleton-managed and
+manually configured dependencies. Node code is identical
+either way -- `ctx.dependency()` returns a
+`DependencyConnection` with the same fields regardless
+of how the dependency was provisioned.
+
+**With exoskeleton (Postgres auto-provisioned, GitHub manual):**
+
+```yaml
+contract:
+  version: "1"
+  dependencies:
+    tentacular-postgres:
+      protocol: postgresql
+    github-api:
+      protocol: https
+      host: api.github.com
+      auth:
+        type: bearer-token
+        secret: github-api.token
+```
+
+**Without exoskeleton (both manually configured):**
+
+```yaml
+contract:
+  version: "1"
+  dependencies:
+    my-postgres:
+      protocol: postgresql
+      host: my-db.example.com
+      port: 5432
+      database: mydb
+      user: myuser
+      auth:
+        type: password
+        secret: my-postgres.password
+    github-api:
+      protocol: https
+      host: api.github.com
+      auth:
+        type: bearer-token
+        secret: github-api.token
+```
+
+Node code for either case:
+
+```typescript
+// With exoskeleton:
+const pg = ctx.dependency("tentacular-postgres");
+// Without exoskeleton:
+const pg = ctx.dependency("my-postgres");
+// Both return: pg.host, pg.port, pg.database, pg.user, pg.secret
+```
+
+### Anti-Confusion Rules
+
+- NEVER add `tentacular-*` dependencies without checking
+  `exo_status` first.
+- NEVER add `host`, `port`, `database`, or `auth` fields
+  to a `tentacular-*` dependency -- the MCP server
+  overwrites them during provisioning.
+- ALWAYS ask the user whether they want exoskeleton-managed
+  or self-managed services when the choice is ambiguous.
+- A workflow with `tentacular-*` dependencies WILL FAIL
+  on a cluster without the exoskeleton. This is by design,
+  not a bug. The error message is explicit.
+
 ## Config Block
 
 The `config:` block is **open** -- it accepts arbitrary
@@ -907,6 +1061,8 @@ tntc run <name> -o json             # 6. Post-deploy verification
 - [ ] Derived NetworkPolicy matches expected access
 - [ ] `tntc test` passes with zero drift
 - [ ] `workflow-diagram.md` and `contract-summary.md` committed to repo
+- [ ] If workflow uses `tentacular-*` dependencies, confirm
+      exoskeleton services are available via `exo_status`
 
 For step details, deploy gate behavior, structured
 output format, and the pre-build review gate, read

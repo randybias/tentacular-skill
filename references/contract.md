@@ -251,6 +251,57 @@ SUMMARY:
 With `-o json`, the drift report is included in the
 test output envelope as a structured `drift` field.
 
+## Exoskeleton-Managed Dependencies (`tentacular-*` Prefix)
+
+Dependencies named with the `tentacular-` prefix are
+auto-provisioned by the MCP server when the exoskeleton
+is enabled. Only `protocol` is required -- all connection
+details (host, port, database, user, auth) are injected
+automatically at deploy time.
+
+### Known Exoskeleton Dependencies
+
+| Name | Protocol | Provisioned Service |
+|------|----------|---------------------|
+| `tentacular-postgres` | `postgresql` | Per-workflow Postgres schema and role |
+| `tentacular-nats` | `nats` | Per-workflow NATS subject scope and credentials |
+| `tentacular-rustfs` | `s3` | Per-workflow RustFS prefix and credentials |
+
+Note: `tentacular-rustfs` uses the `s3` protocol (S3-compatible API).
+
+### Declaration
+
+```yaml
+contract:
+  version: "1"
+  dependencies:
+    tentacular-postgres:
+      protocol: postgresql
+    tentacular-nats:
+      protocol: nats
+    tentacular-rustfs:
+      protocol: s3
+```
+
+Do not add `host`, `port`, `database`, `user`, or `auth`
+fields to `tentacular-*` dependencies. The MCP server
+fills these automatically and overwrites any values
+provided.
+
+### Detection Rule
+
+The MCP server treats any dependency whose name starts
+with `tentacular-` as an exoskeleton service request. If
+the corresponding service is disabled, deployment fails
+with a clear error. Call `exo_status` (MCP tool) before
+authoring `tentacular-*` dependencies.
+
+### Coexistence
+
+A contract can mix `tentacular-*` (exoskeleton-managed)
+and manually configured dependencies. Node code uses
+`ctx.dependency()` identically for both.
+
 ## Extensibility
 
 Extension fields are supported via `x-*` namespaced

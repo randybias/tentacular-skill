@@ -75,6 +75,15 @@ Enumerate all external dependencies and write the
 4. Environment-specific behavior (`dev` vs. `prod`)
 5. Required trigger scheduling and runtime behavior
 
+**Exoskeleton pre-check:** If the workflow needs
+database, messaging, or object storage, call
+`exo_status` (MCP tool) before authoring the contract.
+If exoskeleton services are enabled, use `tentacular-*`
+dependency names (only `protocol` required). If
+disabled, configure dependencies manually with explicit
+host, port, and auth. Ask the user which approach to
+use when the choice is ambiguous.
+
 If any dependency is uncertain, stop and ask. Do not
 proceed with guessed endpoints, guessed credentials,
 or placeholder resources unless explicitly requested
@@ -141,6 +150,9 @@ then run lightweight checks before coding/deploying:
 # Validate cluster targets via MCP
 tntc cluster check -n <dev-namespace>
 tntc cluster check -n <prod-namespace>
+
+# If workflow uses tentacular-* deps, verify exoskeleton
+# Call exo_status MCP tool to confirm services are available
 
 # Validate workflow spec and contract
 tntc validate <workflow-dir>
