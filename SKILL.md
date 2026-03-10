@@ -959,6 +959,41 @@ const pg = ctx.dependency("my-postgres");
   on a cluster without the exoskeleton. This is by design,
   not a bug. The error message is explicit.
 
+### Known Limitations (Phase 1)
+
+> **NATS shared-token model:** The shared-token model
+> means any workflow with NATS access can
+> publish/subscribe to any subject -- the subject prefix
+> is convention-only, not enforced. This is a known
+> Phase 1 limitation. Per-user NATS JWT enforcement is
+> planned for Phase 2.
+
+### Prerequisites
+
+The exoskeleton admin credentials configured on the MCP
+server must meet these requirements:
+
+- **Postgres:** The admin user must have `CREATEROLE`
+  privilege. `SUPERUSER` is NOT required.
+- **RustFS:** The `tentacular` bucket must exist before
+  workflows can use `tentacular-rustfs`. The MCP server
+  attempts to create it on startup, but the admin user
+  must have bucket-creation permissions.
+
+### Cleanup Behavior
+
+When `cleanup_on_undeploy` is true, `wf_remove` drops
+exoskeleton resources for the workflow:
+
+- **Postgres:** Drops the workflow's schema and role.
+- **RustFS:** Deletes the workflow's objects, service
+  user, and access policies.
+- **NATS:** No-op in Phase 1 (shared token).
+
+This is destructive and intentional. Cleanup runs
+best-effort for all configured services, not only those
+the workflow declared.
+
 ## Config Block
 
 The `config:` block is **open** -- it accepts arbitrary
