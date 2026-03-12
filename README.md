@@ -1,10 +1,16 @@
 # tentacular-skill
 
-OpenClaw agent skill for [Tentacular](https://github.com/randybias/tentacular) — a security-first, agent-centric, DAG-based workflow builder and runner for Kubernetes.
+Agent skill for [Tentacular](https://github.com/randybias/tentacular) — teaches AI agents (Claude Code, Codex, Gemini) to build, test, and deploy secure TypeScript workflow DAGs on Kubernetes.
+
+## Documentation
+
+Full documentation: **[randybias.github.io/tentacular-docs](https://randybias.github.io/tentacular-docs)** — see [Agent Skill](https://randybias.github.io/tentacular-docs/concepts/agent-skill/) for an overview of what the skill does and how agents use it.
+
+`SKILL.md` in this repo is the canonical agent instruction set and is linked from, not duplicated in, the documentation site.
 
 ## What this is
 
-This skill teaches an AI agent that supports [AgentSkills](https://agentskills.io) how to use the Tentacular CLI to build, test, and deploy secure TypeScript workflow DAGs on Kubernetes.
+This skill teaches an AI agent how to use the Tentacular CLI and MCP tools to build, test, and deploy secure TypeScript workflow DAGs on Kubernetes.
 
 ## Install
 
@@ -41,4 +47,4 @@ Skill versions track CLI versions. Skill `v0.1.x` documents CLI `v0.1.x` feature
 
 ## License
 
-MIT — Copyright (c) 2026 Mirantis, Inc. See [LICENSE](LICENSE).
+Copyright (c) 2025-2026 Mirantis, Inc. All rights reserved. See [LICENSE](LICENSE).
