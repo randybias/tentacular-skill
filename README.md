@@ -8,17 +8,13 @@ Full documentation: **[randybias.github.io/tentacular-docs](https://randybias.gi
 
 `SKILL.md` in this repo is the canonical agent instruction set and is linked from, not duplicated in, the documentation site.
 
-## What this is
+## What This Is
 
-This skill teaches an AI agent how to use the Tentacular CLI and MCP tools to build, test, and deploy secure TypeScript workflow DAGs on Kubernetes.
+This skill teaches AI agents how to use the Tentacular CLI (`tntc`) and MCP tools to build, test, and deploy secure TypeScript workflow DAGs on Kubernetes. It covers the full lifecycle: scaffold, validate, test, build, deploy, run, monitor.
 
-## Install
+## Contents
 
-Manually copy into your OpenClaw workspace:
-
-```sh
-cp -r . ~/.openclaw/workspace/skills/tentacular
-```
+- [`SKILL.md`](SKILL.md) — skill entrypoint, the complete agent instruction set
 
 ## Requirements
 
@@ -27,11 +23,6 @@ cp -r . ~/.openclaw/workspace/skills/tentacular
   ```sh
   curl -fsSL https://raw.githubusercontent.com/randybias/tentacular/main/install.sh | sh
   ```
-
-## Contents
-
-- [`SKILL.md`](SKILL.md) — skill entrypoint loaded by OpenClaw
-- [`references/`](references/) — detailed documentation on CLI, contracts, deployment, testing, and more
 
 ## Versioning
 
@@ -43,7 +34,8 @@ Skill versions track CLI versions. Skill `v0.1.x` documents CLI `v0.1.x` feature
 |------------|---------|
 | [tentacular](https://github.com/randybias/tentacular) | Go CLI (`tntc`) + Deno workflow engine |
 | [tentacular-mcp](https://github.com/randybias/tentacular-mcp) | In-cluster MCP server (Helm chart, 32 tools) |
-| [tentacular-catalog](https://github.com/randybias/tentacular-catalog) | Workflow template catalog |
+| [tentacular-catalog](https://github.com/randybias/tentacular-catalog) | [Workflow template catalog](https://randybias.github.io/tentacular-catalog) |
+| [tentacular-docs](https://github.com/randybias/tentacular-docs) | [Documentation site](https://randybias.github.io/tentacular-docs) |
 
 ## License
 
