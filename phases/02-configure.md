@@ -50,7 +50,7 @@ environments:
 
 Config resolution: CLI flags → project `.tentacular/config.yaml` → user `~/.tentacular/config.yaml`.
 
-For full environment config options: `references/deployment-guide.md`.
+For full environment config options: [Cluster Configuration](https://randybias.github.io/tentacular-docs/guides/cluster-configuration/).
 
 ## Auto-Profile on Configure
 

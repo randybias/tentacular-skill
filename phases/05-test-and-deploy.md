@@ -2,7 +2,7 @@
 
 **Prerequisites: phases 01–04 complete. All nodes tested individually.**
 
-For fixture format, mock context, and advanced test patterns: `references/testing-guide.md`.
+For fixture format, mock context, and advanced test patterns: [Testing Guide](https://randybias.github.io/tentacular-docs/guides/testing/).
 
 ## Testing Sequence
 

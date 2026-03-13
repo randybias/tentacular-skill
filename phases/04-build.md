@@ -54,15 +54,15 @@ Triggers are defined in `workflow.yaml` under `triggers:`. Common types:
 | `cron` | Scheduled execution — add `schedule: "0 9 * * *"` |
 | `queue` | NATS subject subscription — add `subject: my.subject` |
 
-For full trigger specs and options: `references/workflow-spec.md`.
+For full trigger specs and options: [Workflow Specification](https://randybias.github.io/tentacular-docs/reference/workflow-spec/).
 
 ### 3. Author the contract first
 
 Every external dependency must be declared in `workflow.yaml` under `contract.dependencies`
 before any node is written. No exceptions.
 
-For contract structure: `references/contract.md`.
-For agent planning steps and E2E cycle: `references/agent-workflow.md`.
+For contract structure: [Node Contract](https://randybias.github.io/tentacular-docs/reference/node-contract/).
+For agent planning steps: [Agent Skill](https://randybias.github.io/tentacular-docs/concepts/agent-skill/).
 
 ### 4. Map the full data flow
 
@@ -87,7 +87,7 @@ A node is performative (forbidden) if any of these are true:
 
 If a node in your design is performative → redesign the DAG. Do not proceed.
 
-For the full performative node definition and examples: `references/node-data-flow.md`.
+For the full node contract and data flow patterns: [Node Contract](https://randybias.github.io/tentacular-docs/reference/node-contract/).
 
 ### 5. Get confirmation
 
@@ -158,7 +158,7 @@ const repoName = ctx.config["repo-name"];
 ctx.log.info("message");
 ```
 
-For full Context API: `references/node-development.md`.
+For full Context API: [Node Contract](https://randybias.github.io/tentacular-docs/reference/node-contract/).
 
 #### Step 4: Run the test — verify it passes AND output is correct
 

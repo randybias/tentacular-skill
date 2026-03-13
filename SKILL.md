@@ -710,7 +710,7 @@ Returns: `installed`, `ready`, `namespace`, `image`,
 
 ---
 
-For full CLI reference, read [references/cli.md](references/cli.md).
+For full CLI reference, read the [CLI Reference](https://randybias.github.io/tentacular-docs/reference/cli/).
 
 ## Node Contract
 
@@ -842,7 +842,7 @@ For the complete contract specification, including
 structure, dependency protocols, auth types, enforcement
 modes, drift detection, dynamic-target dependencies,
 label-scoped ingress, and NetworkPolicy overrides, read
-[references/contract.md](references/contract.md).
+the [Node Contract](https://randybias.github.io/tentacular-docs/reference/node-contract/) and [Security](https://randybias.github.io/tentacular-docs/concepts/security/) docs.
 
 ### Exoskeleton-Managed Dependencies
 
@@ -1207,7 +1207,7 @@ tntc run <name> -o json             # 6. Post-deploy verification
 
 For step details, deploy gate behavior, structured
 output format, and the pre-build review gate, read
-[references/deployment-guide.md](references/deployment-guide.md).
+the [Deploy a Tentacle](https://randybias.github.io/tentacular-docs/cookbook/deploy-tentacle/) cookbook.
 
 ## Environment Promotion
 
@@ -1297,7 +1297,7 @@ environment is used when no `--env` flag or
 `TENTACULAR_ENV` variable is set. Resolution order:
 CLI flags > environment config > project config >
 user config > defaults. See
-[references/deployment-guide.md](references/deployment-guide.md)
+the [Deploy a Tentacle](https://randybias.github.io/tentacular-docs/cookbook/deploy-tentacle/) cookbook
 for full environment configuration details.
 
 ### Namespace Convention
@@ -1351,31 +1351,27 @@ is explicitly confirmed by the user.
 For the full agent workflow guide including planning
 steps, E2E cycle, image tag cascade, deploy flags,
 and common gotchas, read
-[references/agent-workflow.md](references/agent-workflow.md).
+the [Agent Skill](https://randybias.github.io/tentacular-docs/concepts/agent-skill/) docs.
 
 ## References
 
-For detailed documentation on specific topics:
+For detailed documentation, see the [Tentacular docs site](https://randybias.github.io/tentacular-docs):
 
-- [CLI Reference](references/cli.md)
+- [CLI Reference](https://randybias.github.io/tentacular-docs/reference/cli/)
   -- full command table, global flags, namespace
-  resolution, config files, visualization reference
-- [Contract Model](references/contract.md)
-  -- contract structure, dependency protocols, auth
-  types, enforcement, drift detection, dynamic targets,
-  label-scoped ingress, NetworkPolicy overrides
-- [Agent Workflow Guide](references/agent-workflow.md)
-  -- planning steps, E2E cycle, image tag cascade,
-  deploy flags, common gotchas
-- [Workflow Specification](references/workflow-spec.md)
+  resolution, config files
+- [Node Contract](https://randybias.github.io/tentacular-docs/reference/node-contract/)
+  -- Context API, dependency access, auth patterns,
+  testing fixtures
+- [Workflow Specification](https://randybias.github.io/tentacular-docs/reference/workflow-spec/)
   -- complete workflow.yaml format, all fields, trigger
   types, validation rules
-- [Node Development](references/node-development.md)
-  -- Context API details, data passing between nodes,
-  patterns
-- [Testing Guide](references/testing-guide.md)
-  -- fixture format, mock context, node and pipeline
-  testing, live testing
-- [Deployment Guide](references/deployment-guide.md)
-  -- build, deploy, cluster check, security model,
-  secrets, environment config, deploy gate
+- [Security Model](https://randybias.github.io/tentacular-docs/concepts/security/)
+  -- contract-driven zero-trust, five defense layers,
+  NetworkPolicy, drift detection
+- [Deploy a Tentacle](https://randybias.github.io/tentacular-docs/cookbook/deploy-tentacle/)
+  -- build, deploy, verify, troubleshoot
+- [Testing Guide](https://randybias.github.io/tentacular-docs/guides/testing/)
+  -- fixture format, mock context, node and pipeline testing
+- [Cluster Configuration](https://randybias.github.io/tentacular-docs/guides/cluster-configuration/)
+  -- environment config, OIDC/SSO, MCP resolution
