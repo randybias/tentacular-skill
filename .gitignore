@@ -1,0 +1,23 @@
+# Scratch (agent/dev temp files)
+scratch/
+
+# Secrets & credentials
+.secrets.yaml
+.secrets/
+
+# AI assistant configs
+.claude/
+.codex/
+.gemini/
+.mcp.json
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Temp & logs
+*.log
+*.tmp
