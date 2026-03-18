@@ -881,18 +881,42 @@ SSO login is required before deploying.
 
 ### Authentication and SSO
 
-When `exo_status` returns `auth_enabled: true`, the
-cluster requires OIDC authentication for deployments.
-The user must authenticate before deploying:
+When `exo_status` returns `auth_enabled: true`, or
+when `mcp_endpoint` is configured for an environment,
+the cluster requires OIDC authentication. The user
+must configure SSO and authenticate before deploying.
+
+#### SSO Setup
+
+Configure OIDC credentials for an environment using
+`tntc configure`. This can be done non-interactively
+(agent-safe) or via guided prompts:
+
+```bash
+# Non-interactive (all values via flags)
+tntc configure -e <env> \
+  --oidc-issuer <issuer-url> \
+  --oidc-client-id <client-id> \
+  --oidc-client-secret <client-secret> \
+  --mcp-endpoint <mcp-url>
+
+# Interactive guided setup (prompts for missing values)
+tntc configure --sso -e <env>
+```
+
+When `oidc_client_secret` is present, the config file
+is written with restricted permissions (0600).
+
+#### Login Flow
 
 1. Check auth status: if `exo_status` shows
    `auth_enabled: true`, instruct the user to run
    `tntc login` before deploying.
-2. `tntc login` initiates a browser-based login via
-   Google SSO through Keycloak. The CLI opens the
-   browser automatically or prints a URL if browser
-   launch fails. Google SSO is restricted to an
-   administrator-configured domain (set via the
+2. `tntc login -e <env>` initiates a browser-based
+   login via Google SSO through Keycloak. The CLI
+   opens the browser automatically or prints a URL
+   if browser launch fails. Google SSO is restricted
+   to an administrator-configured domain (set via the
    Keycloak Google IdP `Hosted Domain` parameter).
    Only Google accounts from the allowed domain can
    authenticate.
