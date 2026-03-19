@@ -12,7 +12,7 @@ tntc init <workflow-name>   # kebab-case required
 cd <workflow-name>
 ```
 
-See Directory Rules in SKILL.md. Secrets (`.secrets.yaml`) live here and are never committed.
+See Directory Layout in `references/architecture.md`. Secrets (`.secrets.yaml`) live here and are never committed.
 
 **workflow.yaml schema — two common mistakes:**
 

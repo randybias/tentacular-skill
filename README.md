@@ -14,7 +14,21 @@ This skill teaches AI agents how to use the Tentacular CLI (`tntc`) and MCP tool
 
 ## Contents
 
-- [`SKILL.md`](SKILL.md) — skill entrypoint, the complete agent instruction set
+- [`SKILL.md`](SKILL.md) — skill entrypoint, loaded by agents on activation
+- `phases/` — step-by-step workflow phases:
+  - `01-install.md` — install tntc CLI and engine
+  - `02-configure.md` — configure environments and MCP
+  - `03-profile.md` — cluster profiling and Agent Guidance
+  - `04-build.md` — design and build workflow nodes
+  - `05-test-and-deploy.md` — testing gates and deployment
+- `references/` — detailed reference documentation:
+  - `architecture.md` — system architecture and components
+  - `mcp-tools.md` — tool details, health model, reports
+  - `node-contract.md` — node signature, Context API
+  - `workflow-spec.md` — workflow.yaml schema and triggers
+  - `contract-model.md` — contract deps, exoskeleton, SSO
+  - `deployment-ops.md` — deploy flow, promotion, env config
+  - `error-recovery.md` — error playbooks and triage
 
 ## Requirements
 
@@ -33,7 +47,7 @@ Skill versions track CLI versions. Skill `v0.1.x` documents CLI `v0.1.x` feature
 | Repository | Purpose |
 |------------|---------|
 | [tentacular](https://github.com/randybias/tentacular) | Go CLI (`tntc`) + Deno workflow engine |
-| [tentacular-mcp](https://github.com/randybias/tentacular-mcp) | In-cluster MCP server (Helm chart, 32 tools) |
+| [tentacular-mcp](https://github.com/randybias/tentacular-mcp) | In-cluster MCP server (Helm chart, 36 tools) |
 | [tentacular-catalog](https://github.com/randybias/tentacular-catalog) | [Workflow template catalog](https://randybias.github.io/tentacular-catalog) |
 | [tentacular-docs](https://github.com/randybias/tentacular-docs) | [Documentation site](https://randybias.github.io/tentacular-docs) |
 

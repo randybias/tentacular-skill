@@ -23,14 +23,13 @@ This is a documentation-only repo with no build or test infrastructure.
   - `04-build.md` — workflow development
   - `05-test-and-deploy.md` — testing and deployment
 - `references/` — detailed reference documentation:
-  - `agent-workflow.md` — agent interaction patterns
-  - `cli.md` — CLI command reference
-  - `contract.md` — node contract specification
-  - `deployment-guide.md` — deployment procedures
-  - `node-data-flow.md` — data flow between nodes
-  - `node-development.md` — writing workflow nodes
-  - `testing-guide.md` — testing workflows
-  - `workflow-spec.md` — workflow.yaml specification
+  - `architecture.md` — system architecture and components
+  - `mcp-tools.md` — tool details, health model, reports
+  - `node-contract.md` — node signature, Context API
+  - `workflow-spec.md` — workflow.yaml schema and triggers
+  - `contract-model.md` — contract deps, exoskeleton, SSO
+  - `deployment-ops.md` — deploy flow, promotion, env config
+  - `error-recovery.md` — error playbooks and triage
 
 ## When to Update
 
@@ -64,4 +63,4 @@ Use `scratch/` for all temporary files, experiments, and throwaway work. This di
 
 ## License
 
-MIT (Mirantis, Inc.)
+Proprietary (Mirantis, Inc.) -- see LICENSE
