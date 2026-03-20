@@ -72,7 +72,7 @@ unique within workflow). Named cron triggers POST `{"trigger": "<name>"}` to
 
 1. Define in workflow.yaml: `type: cron`, `schedule: "0 9 * * *"`,
    optional `name`.
-2. `tntc deploy` records the schedule in a `tentacular.dev/cron-schedule`
+2. `tntc deploy` records the schedule in a `tentacular.io/cron-schedule`
    annotation on the Deployment. No CronJob resource is created.
 3. The MCP server's internal cron scheduler reads the annotation on startup
    and after each `wf_apply`. It fires `wf_run` internally on schedule.

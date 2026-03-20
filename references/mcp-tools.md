@@ -4,7 +4,7 @@ For parameter schemas, use MCP `tools/list` at runtime. This file covers
 tool behavior, response semantics, and usage patterns. The SKILL.md safety
 classification table tells you the risk level of each tool.
 
-The tentacular MCP server exposes 36 tools organized into 13 groups. Agents
+The tentacular MCP server exposes 38 tools organized into 14 groups. Agents
 can discover all tools and their full parameter schemas via the MCP
 `tools/list` method -- no `tntc` CLI or `KUBECONFIG` needed.
 
@@ -14,19 +14,22 @@ can discover all tools and their full parameter schemas via the MCP
 
 Lists all tentacular-managed workflow deployments. Filters by label selector
 `app.kubernetes.io/managed-by=tentacular`. Can filter by namespace, owner
-annotation, or tag annotation.
+annotation, or tag annotation. Requires namespace Read to list tentacles
+in a namespace.
 
 Returns an array of workflow entries, each with: `name`, `namespace`,
-`version`, `owner`, `team`, `environment`, `ready`, `age`.
+`version`, `owner` (from `tentacular.io/owner-email`), `group`, `environment`, `ready`, `age`.
 
 ### wf_describe
 
 Returns detailed information about a single workflow deployment, including
-metadata annotations, replica status, node list, and trigger configuration.
+metadata annotations, replica status, node list, trigger configuration,
+and authorization info.
 
-Returns: `name`, `namespace`, `version`, `owner`, `team`, `tags`,
-`environment`, `ready`, `replicas`, `ready_replicas`, `image`, `age`,
-`nodes`, `triggers`, `annotations` (all `tentacular.dev/*` annotations).
+Returns: `name`, `namespace`, `version`, `owner` (from
+`tentacular.io/owner-email`), `group`, `tags`, `environment`, `mode`,
+`ready`, `replicas`, `ready_replicas`, `image`, `age`, `nodes`,
+`triggers`, `annotations` (all `tentacular.io/*` annotations).
 
 Node names and trigger descriptions are enriched from the workflow ConfigMap
 (`<name>-code`) when available.
@@ -50,7 +53,9 @@ Default timeout: 120 seconds, max 600 seconds.
 
 Apply a set of Kubernetes manifests as a named deployment in a namespace.
 Uses release labels for tracking and garbage collection. Includes garbage
-collection of stale resources from previous deployments.
+collection of stale resources from previous deployments. Creating a new
+tentacle requires namespace Write; updating an existing tentacle requires
+tentacle Write.
 
 Allowed manifest kinds: Deployment, Service, PersistentVolumeClaim,
 NetworkPolicy, ConfigMap, Secret, Job, CronJob, Ingress.
@@ -93,21 +98,24 @@ Common use cases:
 ### wf_logs
 
 Get pod logs from a namespace. Returns tail lines (default 100).
+Requires namespace Read when no tentacle name is specified.
 
 Tip: Use `wf_pods` first to find the pod name, then pass it to `wf_logs`.
 
 ### wf_pods
 
 List pods in a namespace with phase, readiness, restart count, images,
-and age.
+and age. Requires namespace Read when no tentacle name is specified.
 
 ### wf_events
 
 List events in a namespace sorted by most recent first (default limit 100).
+Requires namespace Read when no tentacle name is specified.
 
 ### wf_jobs
 
-List Jobs and CronJobs in a namespace.
+List Jobs and CronJobs in a namespace. Requires namespace Read when no
+tentacle name is specified.
 
 ## Workflow Health
 
@@ -123,8 +131,8 @@ Returns: `name`, `namespace`, `status` (green/amber/red), `reason`,
 ### wf_health_ns
 
 Aggregate G/A/R health status for all tentacular workflow deployments in a
-namespace. Returns per-workflow status and a summary with green/amber/red
-counts.
+namespace. Requires namespace Read. Returns per-workflow status and a summary
+with green/amber/red counts.
 
 Returns: `namespace`, `summary` (green/amber/red counts), `workflows` (array
 of name/status/reason entries), `truncated`, `total`.
@@ -183,6 +191,11 @@ Use health checks in a layered approach:
 
 Create a new managed namespace with network policies, resource quotas, and
 workflow RBAC. Quota preset options: `small`, `medium`, `large`.
+
+When OIDC auth is active, the caller becomes the namespace owner. Accepts
+`group` (group name), `mode` (raw rwx string), and `share` (preset name)
+parameters for namespace-level permissions. Also accepts `default_mode` and
+`default_group` to set inheritance defaults for new tentacles in the namespace.
 
 ### ns_delete
 
@@ -322,6 +335,55 @@ pairs, sensitive values redacted).
 
 List all workflows with exoskeleton registrations by scanning Secrets across
 all namespaces. Read-only. No parameters.
+
+## Permissions
+
+### Tentacle Permissions
+
+### permissions_get
+
+Get owner, group, and mode for a deployed workflow. Read-only.
+
+Parameters: `namespace`, `name`.
+
+Returns: `namespace`, `name`, `owner_sub`, `owner_email`, `owner_name`,
+`group`, `mode` (rwx string, e.g., `rwxr-x---`), `preset` (matching
+preset name or empty), `auth_provider`.
+
+### permissions_set
+
+Set group or share preset for a deployed workflow. Only the workflow
+owner can call this tool. When authenticated via bearer token (no OIDC
+identity), authz is bypassed entirely. At least one of `group` or
+`share` must be provided.
+
+Parameters: `namespace`, `name`, `group` (optional, new group name),
+`share` (optional, preset name: `private`, `group-read`, `group-run`,
+`group-edit`, `public-read`).
+
+Returns: `namespace`, `name`, `group`, `mode` (rwx string), `preset`.
+
+### Namespace Permissions
+
+### ns_permissions_get
+
+Get owner, group, and mode for a namespace. Read-only.
+
+Parameters: `namespace`.
+
+Returns: `namespace`, `owner_sub`, `owner_email`, `owner_name`, `group`,
+`mode` (rwx string), `preset`, `default_mode`, `default_group`.
+
+### ns_permissions_set
+
+Set group, mode, or share preset for a namespace. Only the namespace
+owner can call this tool. Bearer-token requests bypass authz. At least
+one of `group`, `mode`, or `share` must be provided.
+
+Parameters: `namespace`, `group` (optional), `mode` (optional, raw rwx
+string), `share` (optional, preset name).
+
+Returns: `namespace`, `group`, `mode` (rwx string), `preset`.
 
 ## Module Proxy
 

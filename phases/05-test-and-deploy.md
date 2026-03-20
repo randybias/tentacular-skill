@@ -65,7 +65,7 @@ If the target environment is unavailable: stop and resolve that before deploying
 ## Cron Workflow Testing
 
 Cron workflows fire on a schedule managed by the MCP server's internal
-scheduler. The schedule is stored in a `tentacular.dev/cron-schedule` annotation
+scheduler. The schedule is stored in a `tentacular.io/cron-schedule` annotation
 on the Deployment -- no CronJob resources are created. **You must manually
 trigger cron workflows for testing.** Never wait for the schedule to fire to
 verify a fresh deploy.
@@ -123,6 +123,12 @@ Only after all 5 gates pass:
 ```bash
 tntc build --push
 tntc deploy --env <target>
+
+# Optional: set group at deploy time
+tntc deploy --env <target> --group <group-name>
+
+# Optional: make workflow group-readable (mode 0750)
+tntc deploy --env <target> --share
 ```
 
 ### Post-deploy verification
@@ -158,6 +164,25 @@ confirms the workflow is fully operational.
 If the live output is wrong or empty after a successful deploy: the workflow has
 a data-flow bug that tests didn't catch. Return to `phases/04-build.md`, trace
 the data flow, and find the performative or broken node.
+
+### Post-deploy permissions management
+
+When deploying with OIDC authentication, the workflow is automatically
+assigned owner, group, and mode permissions. Check and adjust as needed:
+
+```bash
+# Check current permissions
+tntc permissions get <namespace> <workflow-name>
+
+# Change mode (rwx string or preset name)
+tntc permissions chmod group-read <namespace> <workflow-name>
+
+# Change group
+tntc permissions chgrp <group-name> <namespace> <workflow-name>
+```
+
+Only the workflow owner can modify permissions. Bearer-token deploys
+bypass authorization entirely.
 
 ---
 
