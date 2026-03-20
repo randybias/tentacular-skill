@@ -76,6 +76,7 @@ Building or developing? **CLI.** Querying or operating the cluster? **MCP tools.
 | `exo_registration` | Workflow exo registration details |
 | `exo_list` | List all exo registrations |
 | `proxy_status` | Module proxy readiness |
+| `permissions_get` | Get owner, group, and mode for a workflow |
 
 ### Write Tools (create or modify resources)
 
@@ -90,6 +91,7 @@ Building or developing? **CLI.** Querying or operating the cluster? **MCP tools.
 | `gvisor_verify` | Create ephemeral verification pod |
 | `cred_issue_token` | Issue short-lived SA token |
 | `cred_kubeconfig` | Generate scoped kubeconfig |
+| `permissions_set` | Set group or mode for a workflow (owner-only) |
 
 ### Destructive Tools (data loss possible -- confirm with user)
 
@@ -204,9 +206,9 @@ Read `references/architecture.md` when:
 
 ## MCP Tools
 
-36 tools organized into 13 groups: namespace management, credentials,
+38 tools organized into 14 groups: namespace management, credentials,
 workflow lifecycle, execution, discovery, observability, health, cluster
-ops, audit, gVisor, exoskeleton, and module proxy. Use the safety
+ops, audit, gVisor, exoskeleton, permissions, and module proxy. Use the safety
 classification table above for risk assessment and `tools/list` for
 parameter schemas.
 
@@ -249,6 +251,16 @@ Read `references/contract-model.md` when:
 - Working with exoskeleton services
 - Configuring SSO/auth for deploy
 
+## Authorization
+
+Tentacles use POSIX-like owner/group/mode permissions enforced at the
+MCP layer. Namespaces are directories; tentacles are files.
+
+Read `references/authorization.md` when:
+- Deploying with `--group` or `--share` flags
+- Managing permissions (`permissions_get`, `permissions_set`, `chmod`, `chgrp`)
+- Troubleshooting access denied errors
+
 ## Deployment and Operations
 
 Deployment flow: validate -> visualize -> test -> live test -> deploy ->
@@ -278,4 +290,5 @@ Read `references/deployment-ops.md` when:
 | `references/workflow-spec.md` | workflow.yaml schema and triggers |
 | `references/contract-model.md` | Contract deps, exoskeleton, SSO |
 | `references/deployment-ops.md` | Deploy flow, promotion, env config |
+| `references/authorization.md` | Permission model, presets, CLI/MCP tools |
 | `references/error-recovery.md` | Error playbooks and triage |
