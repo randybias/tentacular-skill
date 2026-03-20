@@ -4,7 +4,7 @@ For parameter schemas, use MCP `tools/list` at runtime. This file covers
 tool behavior, response semantics, and usage patterns. The SKILL.md safety
 classification table tells you the risk level of each tool.
 
-The tentacular MCP server exposes 38 tools organized into 14 groups. Agents
+The tentacular MCP server exposes 34 tools organized into 12 groups. Agents
 can discover all tools and their full parameter schemas via the MCP
 `tools/list` method -- no `tntc` CLI or `KUBECONFIG` needed.
 

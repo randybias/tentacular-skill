@@ -85,7 +85,7 @@ does not pass explicit `--group` or `--share` flags:
 
 ```
 1. Bearer-token caller? → ALLOW (full trust bypass)
-2. No owner-sub annotation? → ALLOW (pre-authz backwards compat)
+2. No owner-sub annotation? → DENY (unowned resource; use bearer-token to adopt)
 3. Caller is owner? → check owner bits (positions 0-2)
 4. Tentacle group in caller's JWT groups? → check group bits (positions 3-5)
 5. Otherwise → check others bits (positions 6-8)

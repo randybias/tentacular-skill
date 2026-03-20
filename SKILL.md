@@ -77,6 +77,7 @@ Building or developing? **CLI.** Querying or operating the cluster? **MCP tools.
 | `exo_list` | List all exo registrations |
 | `proxy_status` | Module proxy readiness |
 | `permissions_get` | Get owner, group, and mode for a workflow |
+| `ns_permissions_get` | Get owner, group, and mode for a namespace |
 
 ### Write Tools (create or modify resources)
 
@@ -202,9 +203,9 @@ Read `references/architecture.md` when:
 
 ## MCP Tools
 
-32 tools organized into 11 groups: namespace management,
+34 tools organized into 12 groups: namespace management,
 workflow lifecycle, execution, discovery, observability, health, cluster
-ops, audit, exoskeleton, permissions, and module proxy. Use the safety
+ops, audit, exoskeleton, permissions, deploy, and module proxy. Use the safety
 classification table above for risk assessment and `tools/list` for
 parameter schemas.
 
