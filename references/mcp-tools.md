@@ -86,12 +86,9 @@ Common use cases:
   mounted ConfigMaps or Secrets change.
 - Stuck/degraded recovery: pods in CrashLoopBackOff or degraded state are
   replaced gracefully.
-- Post-credential rotation: after `cred_rotate` invalidates prior
-  ServiceAccount tokens, running deployments need a restart to obtain fresh
-  tokens.
-- gVisor enablement: after `gvisor_annotate_ns` annotates a namespace,
-  existing pods continue on the old runtime. A restart forces new pods onto
-  gVisor.
+- Runtime class changes: after namespace annotations are updated, existing
+  pods continue on the old runtime. A restart forces new pods onto the
+  configured runtime class.
 
 ## Workflow Observability
 
@@ -218,24 +215,6 @@ Requires at least one update field.
 List all namespaces managed by tentacular. No parameters required.
 
 ## Credentials
-
-### cred_issue_token
-
-Issue a short-lived token for the tentacular-workflow service account in a
-namespace. Token lifetime: 10-1440 minutes. Each call creates a new token
-(not idempotent).
-
-### cred_kubeconfig
-
-Generate a kubeconfig for the tentacular-workflow service account in a
-namespace. Token lifetime: 10-1440 minutes. Each call creates a new
-kubeconfig (not idempotent).
-
-### cred_rotate
-
-Rotate the workflow service account in a namespace, invalidating all existing
-tokens. This is destructive -- all running pods that rely on the current
-service account token will lose access until restarted.
 
 ## Cluster Operations
 
