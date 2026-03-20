@@ -87,17 +87,46 @@ restricted permissions (0600).
 Token refresh is automatic. If the refresh token expires, the CLI prompts
 the user to run `tntc login` again.
 
-## Deployer Provenance
+## Deployer Provenance and Authorization
 
 When SSO auth is active, the MCP server annotates Deployment manifests with
-deployer identity:
+deployer identity and authorization metadata:
 
-- `tentacular.io/deployed-by`: deployer email
+**Provenance annotations:**
+- `tentacular.io/deployed-by`: deployer email (legacy alias for owner-email)
 - `tentacular.io/deployed-at`: deployment timestamp
 - `tentacular.io/deployed-via`: agent type (cli, etc.)
 
-These annotations are visible in `wf_describe` output. Use this to verify
-who deployed a workflow and when.
+**Authorization annotations (stamped on CREATE, preserved on UPDATE):**
+- `tentacular.io/owner-sub`: owner's OIDC subject identifier
+- `tentacular.io/owner-email`: owner's email address
+- `tentacular.io/owner-name`: owner's display name
+- `tentacular.io/group`: group assignment (from `--group` flag or empty)
+- `tentacular.io/mode`: permission string (e.g., `rwxr-x---`)
+- `tentacular.io/auth-provider`: authentication provider type (e.g., `keycloak`, `bearer-token`)
+- `tentacular.io/created-at`: creation timestamp (set once on first deploy)
+
+**Audit annotations (stamped on UPDATE):**
+- `tentacular.io/updated-at`: last update timestamp
+- `tentacular.io/updated-by-sub`: last updater's OIDC subject
+- `tentacular.io/updated-by-email`: last updater's email
+
+These annotations are visible in `wf_describe` output. Use `permissions_get`
+to check the effective owner, group, and mode. Only the owner can modify
+permissions via `permissions_set`.
+
+**Permission presets:**
+
+| Preset | Mode | Meaning |
+|--------|------|---------|
+| `private` | `rwx------` | Owner only |
+| `group-read` | `rwxr-x---` | Owner full, group can read and execute (default) |
+| `group-run` | `rwx--x---` | Owner full, group can execute only |
+| `group-edit` | `rwxrwx---` | Owner and group have full access |
+| `public-read` | `rwxr--r--` | Owner full, everyone can read |
+
+Bearer-token deploys bypass authorization entirely. To disable authz
+server-wide, set `TENTACULAR_AUTHZ_ENABLED=false`.
 
 ## When to Use Managed vs Manual Dependencies
 

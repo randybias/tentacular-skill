@@ -40,7 +40,7 @@ Building or developing? **CLI.** Querying or operating the cluster? **MCP tools.
 | Trigger workflow run | MCP | `wf_run` |
 | View logs / pods / events / jobs | MCP | `wf_logs`, `wf_pods`, `wf_events`, `wf_jobs` |
 | Cluster health and security audit | MCP | `health_*`, `audit_*` |
-| Namespace and credential management | MCP | `ns_*`, `cred_*` |
+| Namespace management | MCP | `ns_*` |
 | Install MCP server | Helm | `helm install` |
 | Workflow needs backing services? | MCP | Check `exo_status` first |
 
@@ -76,6 +76,8 @@ Building or developing? **CLI.** Querying or operating the cluster? **MCP tools.
 | `exo_registration` | Workflow exo registration details |
 | `exo_list` | List all exo registrations |
 | `proxy_status` | Module proxy readiness |
+| `permissions_get` | Get owner, group, and mode for a workflow |
+| `ns_permissions_get` | Get owner, group, and mode for a namespace |
 
 ### Write Tools (create or modify resources)
 
@@ -86,10 +88,8 @@ Building or developing? **CLI.** Querying or operating the cluster? **MCP tools.
 | `wf_apply` | Apply K8s manifests as a named deployment |
 | `wf_run` | Trigger a workflow execution |
 | `wf_restart` | Rollout restart a deployment |
-| `gvisor_annotate_ns` | Annotate namespace for gVisor |
-| `gvisor_verify` | Create ephemeral verification pod |
-| `cred_issue_token` | Issue short-lived SA token |
-| `cred_kubeconfig` | Generate scoped kubeconfig |
+| `permissions_set` | Set group or mode for a workflow (owner-only) |
+| `ns_permissions_set` | Set group or mode for a namespace (owner-only) |
 
 ### Destructive Tools (data loss possible -- confirm with user)
 
@@ -97,7 +97,6 @@ Building or developing? **CLI.** Querying or operating the cluster? **MCP tools.
 |------|-------------|
 | `ns_delete` | Delete a managed namespace and all contents |
 | `wf_remove` | Remove all resources for a deployment |
-| `cred_rotate` | Recreate SA, invalidating all tokens |
 
 ---
 
@@ -204,9 +203,9 @@ Read `references/architecture.md` when:
 
 ## MCP Tools
 
-36 tools organized into 13 groups: namespace management, credentials,
+34 tools organized into 12 groups: namespace management,
 workflow lifecycle, execution, discovery, observability, health, cluster
-ops, audit, gVisor, exoskeleton, and module proxy. Use the safety
+ops, audit, exoskeleton, permissions, deploy, and module proxy. Use the safety
 classification table above for risk assessment and `tools/list` for
 parameter schemas.
 
@@ -249,6 +248,16 @@ Read `references/contract-model.md` when:
 - Working with exoskeleton services
 - Configuring SSO/auth for deploy
 
+## Authorization
+
+Tentacles use POSIX-like owner/group/mode permissions enforced at the
+MCP layer. Namespaces are directories; tentacles are files.
+
+Read `references/authorization.md` when:
+- Deploying with `--group` or `--share` flags
+- Managing permissions (`permissions_get`, `permissions_set`, `chmod`, `chgrp`)
+- Troubleshooting access denied errors
+
 ## Deployment and Operations
 
 Deployment flow: validate -> visualize -> test -> live test -> deploy ->
@@ -278,4 +287,5 @@ Read `references/deployment-ops.md` when:
 | `references/workflow-spec.md` | workflow.yaml schema and triggers |
 | `references/contract-model.md` | Contract deps, exoskeleton, SSO |
 | `references/deployment-ops.md` | Deploy flow, promotion, env config |
+| `references/authorization.md` | Permission model, presets, CLI/MCP tools |
 | `references/error-recovery.md` | Error playbooks and triage |
