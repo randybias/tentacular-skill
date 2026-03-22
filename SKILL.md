@@ -151,11 +151,31 @@ tests, pipeline test, live test all pass. Post-deploy: run + verify output
 
 ## Creating a New Workflow
 
-Before writing any code, answer these questions with the user:
+### Step 0: Search for Scaffolds (ALWAYS do this first)
+
+Before writing any code, search for existing scaffolds:
+
+```
+tntc scaffold search "<relevant terms from user request>"
+```
+
+Evaluate results:
+- **Exact match found:** Use Lifecycle B -- scaffold as-is, fill parameters.
+  See [Parameter Negotiation Protocol](#parameter-negotiation-protocol-lifecycle-b).
+- **Close match found:** Use Lifecycle C -- scaffold as starting point, modify.
+  See [Scaffold Modification Protocol](#scaffold-modification-protocol-lifecycle-c).
+- **No match:** Use Lifecycle A -- build from scratch with `tntc init`.
+
+Always search scaffolds first, even if the user does not mention them. Private
+scaffolds may contain org-specific patterns that are a better starting point
+than building from scratch. Communicate your decision to the human before
+proceeding.
+
+### Step 1: Answer these questions with the user
 
 1. **Where does it live?** `~/tentacles/<name>/`
-   Scaffold with `tntc init <name>` or
-   `tntc catalog init <template> <name>`.
+   Create with `tntc init <name>` (from scratch) or
+   `tntc scaffold init <scaffold> <name>` (from a scaffold).
 
 2. **What triggers it?** manual | cron | queue
    (See `references/workflow-spec.md` for trigger details.)
@@ -173,6 +193,71 @@ Before writing any code, answer these questions with the user:
 
 6. **Get user confirmation.** Present the DAG, data flow, and contract.
    STOP. Do not write code until the user explicitly confirms.
+
+---
+
+## Scaffold Lifecycle Protocols
+
+Four lifecycles cover every path from idea to deployed tentacle. Read
+`references/scaffold-lifecycle.md` for the full reference including diagrams,
+CLI commands, and extraction heuristics.
+
+### Parameter Negotiation Protocol (Lifecycle B)
+
+When a scaffold matches the user's request as-is:
+
+1. `tntc scaffold init <scaffold> <name> --no-params`
+2. Read `params.schema.yaml` from the new tentacle directory
+3. For each parameter where `required: true`:
+   - Present the parameter name, description, type, and example to the human
+   - Collect the value
+4. For each parameter where `required: false`:
+   - Present the parameter with its default value
+   - Ask if the human wants to change it
+5. Edit `workflow.yaml` directly, replacing example values with real values
+   at the paths indicated by the schema
+6. `tntc scaffold params validate` -- verify all parameters have real values
+7. `tntc validate`
+
+**Alternative:** If all parameter values are known upfront, write a
+`params.yaml` file and use `tntc scaffold init <scaffold> <name> --params-file
+params.yaml` to apply them in one step. Same result, fewer edits.
+
+### Scaffold Modification Protocol (Lifecycle C)
+
+When a scaffold is close but needs structural changes:
+
+1. `tntc scaffold init <scaffold> <name> --no-params`
+2. Read the scaffold's `workflow.yaml` and node code to understand the pattern
+3. Present a modification plan to the human (what changes, what stays)
+4. After human approval, make all changes directly to the tentacle files
+5. Delete or rewrite `params.schema.yaml` as appropriate (delete if structure
+   diverged significantly, rewrite if extraction is anticipated)
+6. Set `modified: true` in `tentacle.yaml` under the `scaffold` section
+7. `tntc validate`
+
+### Scaffold Extraction Protocol (Lifecycle D)
+
+When extracting a reusable scaffold from a working tentacle:
+
+1. `tntc scaffold extract --json` -- get the analysis without generating files
+2. Review proposed parameters against extraction heuristics
+   (see `references/scaffold-lifecycle.md`)
+3. Present the parameterization plan to the human
+4. After human approval, `tntc scaffold extract` to generate files
+5. Default output: private scaffold at `~/.tentacular/scaffolds/<name>/`
+6. To publish: re-run with `--public`, review generated files, PR to
+   `tentacular-scaffolds`
+
+### Post-Deployment Prompt
+
+After a successful `tntc deploy`, if the tentacle was created from a modified
+scaffold (Lifecycle C) or from scratch (Lifecycle A), ask:
+
+> "This tentacle is working well. Would you like me to extract it as a
+> reusable scaffold for future use?"
+
+This encourages the scaffold library to grow organically from real work.
 
 ---
 
@@ -258,6 +343,19 @@ Read `references/authorization.md` when:
 - Managing permissions (`permissions_get`, `permissions_set`, `chmod`, `chgrp`)
 - Troubleshooting access denied errors
 
+## Scaffold Lifecycle
+
+Scaffolds are reusable starting structures for building tentacles. They come
+from private scaffolds (`~/.tentacular/scaffolds/`), public quickstarts
+(`~/.tentacular/quickstarts/`), or are created fresh (`tntc init`). Scaffolds
+are temporary -- they accelerate tentacle creation but do not constrain it.
+
+Read `references/scaffold-lifecycle.md` when:
+- Creating a tentacle from a scaffold
+- Negotiating parameters with the user
+- Extracting a scaffold from a working tentacle
+- Understanding workspace layout (`~/tentacles/`, `~/.tentacular/`)
+
 ## Deployment and Operations
 
 Deployment flow: validate -> visualize -> test -> live test -> deploy ->
@@ -288,4 +386,5 @@ Read `references/deployment-ops.md` when:
 | `references/contract-model.md` | Contract deps, exoskeleton, SSO |
 | `references/deployment-ops.md` | Deploy flow, promotion, env config |
 | `references/authorization.md` | Permission model, presets, CLI/MCP tools |
+| `references/scaffold-lifecycle.md` | Scaffold lifecycle, CLI reference, extraction heuristics |
 | `references/error-recovery.md` | Error playbooks and triage |
