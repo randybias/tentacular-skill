@@ -48,7 +48,7 @@ Skill versions track CLI versions. Skill `v0.1.x` documents CLI `v0.1.x` feature
 |------------|---------|
 | [tentacular](https://github.com/randybias/tentacular) | Go CLI (`tntc`) + Deno workflow engine |
 | [tentacular-mcp](https://github.com/randybias/tentacular-mcp) | In-cluster MCP server (Helm chart, 36 tools) |
-| [tentacular-catalog](https://github.com/randybias/tentacular-catalog) | [Workflow template catalog](https://randybias.github.io/tentacular-catalog) |
+| [tentacular-scaffolds](https://github.com/randybias/tentacular-scaffolds) | [Scaffold quickstart library](https://randybias.github.io/tentacular-scaffolds) |
 | [tentacular-docs](https://github.com/randybias/tentacular-docs) | [Documentation site](https://randybias.github.io/tentacular-docs) |
 
 ## License

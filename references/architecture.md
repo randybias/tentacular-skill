@@ -68,19 +68,19 @@ Why separate:
 - The tentacular repo is public -- secrets and production configs must never
   end up there.
 - Workflows are operational artifacts, not source code for the tool itself.
-- Production-ready templates are available via the tentacular-catalog --
-  use `tntc catalog init` to scaffold from them.
+- Production-ready scaffolds are available via tentacular-scaffolds --
+  use `tntc scaffold init` to scaffold from them.
 
 When building a new workflow, use `tntc init <name>` for a blank scaffold or
-`tntc catalog init <template> <name>` to start from a production template.
+`tntc scaffold init <scaffold> <name>` to start from a production scaffold.
 
 ```bash
-# Browse available templates
-tntc catalog list
-tntc catalog search monitoring
+# Browse available scaffolds
+tntc scaffold list
+tntc scaffold search monitoring
 
-# Scaffold from a template
-tntc catalog init hn-digest my-news-digest
+# Scaffold from a quickstart
+tntc scaffold init hn-digest my-news-digest
 ```
 
 ## Querying Deployed Workflows
