@@ -153,7 +153,7 @@ tests, pipeline test, live test all pass. Post-deploy: run + verify output
 
 Before writing any code, answer these questions with the user:
 
-1. **Where does it live?** `~/workspace/tentacles/<name>/`
+1. **Where does it live?** `~/tentacles/<name>/`
    Scaffold with `tntc init <name>` or
    `tntc catalog init <template> <name>`.
 
