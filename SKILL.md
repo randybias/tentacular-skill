@@ -368,6 +368,17 @@ Read `references/deployment-ops.md` when:
 - Configuring environment settings
 - Running dependency preflight checks
 
+## The Kraken (Slack Bot)
+
+The Kraken is a Slack bot that provides a natural-language conversational
+interface to Tentacular. It uses the Claude Agent SDK in-process (no
+Docker containers) and connects to the MCP server for cluster operations.
+
+Read `references/thekraken.md` when:
+- Understanding The Kraken's architecture and deployment model
+- Configuring the Slack bot or its MCP server connection
+- Debugging agent execution, thread support, or scheduled tasks
+
 ---
 
 ## References Index
@@ -388,3 +399,4 @@ Read `references/deployment-ops.md` when:
 | `references/authorization.md` | Permission model, presets, CLI/MCP tools |
 | `references/scaffold-lifecycle.md` | Scaffold lifecycle, CLI reference, extraction heuristics |
 | `references/error-recovery.md` | Error playbooks and triage |
+| `references/thekraken.md` | The Kraken Slack bot architecture and deployment |
