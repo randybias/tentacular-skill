@@ -46,6 +46,29 @@ Building or developing? **CLI.** Querying or operating the cluster? **MCP tools.
 
 ---
 
+## MCP Authentication
+
+When `mcp_endpoint` is configured for an environment, the MCP server may require
+OIDC authentication. Check and handle auth before any MCP operations:
+
+| Auth Mode | How to Detect | Login Required? |
+|-----------|---------------|-----------------|
+| Bearer-token only | `mcp_token_path` is set, no OIDC config | No -- token file is sufficient |
+| OIDC enabled | `exo_status` returns `auth_enabled: true` | Yes -- run `tntc login --env <env>` |
+
+**Before MCP operations on an OIDC-enabled server:**
+
+1. Run `tntc whoami --env <env>` to check authentication status
+2. If not authenticated, run `tntc login --env <env>` (browser-based SSO flow)
+3. OIDC tokens last 12 hours -- re-authentication is infrequent
+4. If a 401/403 occurs mid-session, the token has expired -- re-run `tntc login --env <env>`
+
+Skipping login on an OIDC-enabled server causes all MCP tool calls to fail
+with authentication errors. See `references/contract-model.md` for OIDC
+configuration details.
+
+---
+
 ## Tool Safety Classification
 
 ### Read-Only Tools (safe to call at any time)
