@@ -381,9 +381,10 @@ Read `references/scaffold-lifecycle.md` when:
 
 ## Sidecars
 
-Workflows can declare sidecar containers for native tools (ffmpeg, headless browsers, ML models). Sidecars run in the same pod, communicate via `localhost:PORT`, and share a `/shared` volume. No engine changes needed — nodes call sidecars with `globalThis.fetch()`.
+Workflows can declare sidecar containers for native tools (ffmpeg, headless browsers, ML models). Sidecars run in the same pod, communicate via `localhost:PORT`, and share a `/shared` volume. No engine changes needed — nodes call sidecars with `globalThis.fetch()`. **Not every native tool needs a sidecar** — check the decision rules before adding one.
 
 Read `references/sidecars.md` when:
+- Deciding whether a workflow needs a sidecar vs pure Deno, init container, or exoskeleton
 - Adding native binary capabilities (ffmpeg, Chromium, ImageMagick) to a workflow
 - Designing workflows that need shared file handoff between containers
 - Debugging sidecar readiness, port conflicts, or SecurityContext issues
