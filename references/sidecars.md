@@ -13,18 +13,49 @@ engine and run under the same gVisor sandbox and SecurityContext.
 - Same pod-level security hardening: gVisor, PSA restricted, `runAsUser: 65534`
 - No engine changes needed — nodes call sidecars with `globalThis.fetch()`
 
-## When to Use Sidecars
+## When to Use Sidecars (Decision Rules)
 
-| Use Case | Example Image | Why Not WASM/Init Container |
-|----------|--------------|----------------------------|
-| CPU-bound media processing | `linuxserver/ffmpeg` | 5-10x faster than WASM under gVisor |
-| Complex rendering | Headless Chromium | Not WASM-compilable |
-| ML inference | Python model serving | Docker image ecosystem, no WASM port |
-| Native CLI tools | ImageMagick, Pandoc, wkhtmltopdf | Any Docker image works |
+**Use a sidecar when ALL of the following are true:**
 
-Use init containers (tentacular#91) for one-shot preprocessing (single input,
-no re-processing). Use sidecars when a node may call the tool multiple times
-per pod lifetime.
+1. The workflow needs a native binary that cannot run inside Deno (ffmpeg, Pandoc, ImageMagick, ML models, headless browsers)
+2. The tool needs to be called on-demand, potentially multiple times per pod lifetime
+3. There is a production-quality Docker image available for the tool (multi-arch preferred)
+
+**Do NOT use a sidecar when:**
+
+- **The task can be done in pure TypeScript/Deno.** If a npm/deno package exists that does the job (image resizing with sharp, PDF generation with jsPDF, data parsing), use it directly in the node. No sidecar needed.
+- **The tool is only needed once at startup.** Use an init container instead (tentacular#91) — simpler, no HTTP wrapper needed, no long-running process.
+- **The task is a shared heavyweight service** (database, message queue, GPU transcoding pool). Use an exoskeleton service instead — sidecars are per-pod, not shared.
+- **You're calling an external API.** Use a contract dependency, not a sidecar. Sidecars are for in-pod native binaries, not for proxying external services.
+- **WASM is sufficient.** For lightweight, CPU-cheap operations (hashing, small data transforms), a WASM module may work without the overhead of a second container. But note WASM is 5-10x slower than native under gVisor for CPU-bound work.
+
+### Decision Flowchart
+
+```
+Can the task be done in pure TypeScript/Deno?
+  YES → Do it in the node. No sidecar.
+  NO  ↓
+Is it a one-shot preprocessing step (run once, then done)?
+  YES → Use an init container (tentacular#91).
+  NO  ↓
+Is it a shared service (database, queue, inference pool)?
+  YES → Use an exoskeleton service.
+  NO  ↓
+Does a suitable Docker image exist?
+  YES → Use a sidecar.
+  NO  → Build a custom sidecar image, or reconsider the approach.
+```
+
+### Sidecar vs Alternatives
+
+| Approach | When to Use | Performance | Complexity |
+|----------|------------|-------------|------------|
+| **Pure Deno** | npm/deno package available | Fastest (no IPC) | Lowest |
+| **Sidecar** | Native binary, on-demand, per-pod | 5-10x faster than WASM | Medium |
+| **Init container** | Native binary, one-shot preprocessing | Same as sidecar | Low |
+| **Exoskeleton** | Shared heavyweight service | Varies | High |
+| **WASM** | Lightweight native code, no Docker overhead | Slowest under gVisor | Low |
+| **Contract dependency** | External API or service | Network-dependent | Lowest |
 
 ## Workflow YAML Schema
 
