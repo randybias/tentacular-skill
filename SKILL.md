@@ -379,6 +379,15 @@ Read `references/scaffold-lifecycle.md` when:
 - Extracting a scaffold from a working tentacle
 - Understanding workspace layout (`~/tentacles/`, `~/.tentacular/`)
 
+## Sidecars
+
+Workflows can declare sidecar containers for native tools (ffmpeg, headless browsers, ML models). Sidecars run in the same pod, communicate via `localhost:PORT`, and share a `/shared` volume. No engine changes needed — nodes call sidecars with `globalThis.fetch()`.
+
+Read `references/sidecars.md` when:
+- Adding native binary capabilities (ffmpeg, Chromium, ImageMagick) to a workflow
+- Designing workflows that need shared file handoff between containers
+- Debugging sidecar readiness, port conflicts, or SecurityContext issues
+
 ## Deployment and Operations
 
 Deployment flow: validate -> visualize -> test -> live test -> deploy ->
@@ -410,4 +419,5 @@ Read `references/deployment-ops.md` when:
 | `references/deployment-ops.md` | Deploy flow, promotion, env config |
 | `references/authorization.md` | Permission model, presets, CLI/MCP tools |
 | `references/scaffold-lifecycle.md` | Scaffold lifecycle, CLI reference, extraction heuristics |
+| `references/sidecars.md` | Sidecar schema, communication patterns, security model, troubleshooting |
 | `references/error-recovery.md` | Error playbooks and triage |

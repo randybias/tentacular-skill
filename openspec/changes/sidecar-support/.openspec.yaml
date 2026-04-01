@@ -1,0 +1,7 @@
+name: sidecar-support
+status: proposed
+description: >
+  Add sidecar documentation to SKILL.md pointer section and full
+  references/sidecars.md reference for AI agents.
+artifacts:
+  - proposal
