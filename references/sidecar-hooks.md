@@ -252,18 +252,30 @@ while (my $client = $server->accept()) {
         my ($input) = $body =~ /"input"\s*:\s*"([^"]*)"/;
         $input //= '';
 
+        # SECURITY: Use list-form open, never backticks with user input.
+        # List-form bypasses shell interpolation, preventing command injection.
         my $start = time();
-        my $output = `my-tool "$input" 2>&1`;
+        my @cmd = ('my-tool', $input);
+        my $output = '';
+        if (open(my $pipe, '-|', @cmd)) {
+            local $/;
+            $output = <$pipe> // '';
+            close $pipe;
+        }
         my $rc = $? >> 8;
         my $duration_ms = (time() - $start) * 1000;
 
         if ($rc != 0) {
             my $err = substr($output, 0, 500);
+            $err =~ s/\\/\\\\/g;
             $err =~ s/"/\\"/g;
             http_json($client, 500, qq({"error":"$err"}));
         } else {
+            $output =~ s/\\/\\\\/g;
             $output =~ s/"/\\"/g;
             $output =~ s/\n/\\n/g;
+            $output =~ s/\t/\\t/g;
+            $output =~ s/\r/\\r/g;
             http_json($client, 200,
                 qq({"stdout":"$output","duration_ms":$duration_ms}));
         }
@@ -311,7 +323,8 @@ always installed. For sidecar payloads this is fine — the shapes are simple
 and fixed. Rules:
 
 - **Producing JSON:** Use `qq()` interpolation for known fields. Escape
-  double quotes and newlines in dynamic values.
+  backslashes first, then double quotes, newlines, tabs, and carriage
+  returns in dynamic values.
 - **Parsing JSON:** Use regex extraction (`/"key"\s*:\s*"([^"]*)"/"`) for
   string fields, (`/"key"\s*:\s*(\d+)/`) for numbers. This is adequate for
   the flat JSON objects nodes send to sidecars.
@@ -341,6 +354,23 @@ Node                          Sidecar
  |                              |-- ffmpeg writes /shared/output
  |<--- {frames: [...]} --------|
  |-- read frames from /shared   |
+```
+
+**Path validation:** Always validate that file paths from HTTP requests
+are within `/shared/`. The sidecar runs with `readOnlyRootFilesystem` and
+gVisor limits writes to `/tmp` and `/shared`, but defense-in-depth matters:
+
+```perl
+# Perl — validate before processing
+die "input must be under /shared/" unless $input =~ m{^/shared/};
+die "output must be under /shared/" unless $output_dir =~ m{^/shared/};
+```
+
+```python
+# Python — validate before processing
+if not input_path.startswith("/shared/"):
+    self._json_response(400, {"error": "path must be under /shared/"})
+    return
 ```
 
 ## E2E Validated Examples
