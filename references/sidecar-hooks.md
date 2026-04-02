@@ -88,14 +88,46 @@ highest available tier:
 |-------|----------|---------|------|------|----|------------|
 | `linuxserver/ffmpeg:latest` | Video/audio processing | -- | 5.38 | yes | yes | arm64+amd64 |
 | `dpokidov/imagemagick:latest` | Image conversion | -- | yes | yes | -- | TBD |
-| `ghcr.io/browserless/chromium` | Headless browser | yes | -- | yes | -- | arm64+amd64 |
+| `ghcr.io/browserless/chromium` | Headless browser | yes | yes | yes | -- | arm64+amd64 |
 | `pandoc/core:3.6` | Document conversion | -- | -- | -- | yes | arm64+amd64 |
+| `alpine:latest` | Minimal (testing/probes) | -- | -- | yes | yes | arm64+amd64 |
 
 **Note:** `pandoc/core` does NOT need the hook pattern — it ships `pandoc-server`
 with a built-in HTTP API. It is listed here only for completeness.
 
 Always verify before committing to an image. Image contents change across
 versions. Pin to a specific tag or digest in production, not `:latest`.
+
+### Binary Path Discovery
+
+Some images install tools in non-standard locations. The binary may not be
+on `PATH` even though it exists in the image. Common pitfalls:
+
+- **browserless/chromium**: Chromium lives at
+  `/usr/local/bin/playwright-browsers/chromium-*/chrome-linux/chrome`, NOT as
+  `chromium` on PATH. Use `glob` in Python or `find` in bash to locate it.
+- **linuxserver/ffmpeg**: `ffmpeg` is on PATH (works directly).
+- **pandoc/core**: `pandoc` and `pandoc-server` are on PATH.
+
+**Always probe the image before writing the hook script:**
+
+```bash
+# Find a binary by name
+docker run --rm --entrypoint sh IMAGE -c "find / -type f -executable -name '*chromium*' 2>/dev/null | head -10"
+
+# Check what runtimes are available
+docker run --rm --entrypoint sh IMAGE -c "which python3 perl bash nc 2>/dev/null"
+```
+
+When the binary path is version-dependent (contains a version number in the
+directory), use glob patterns in your hook script rather than hardcoding:
+
+```python
+# Python: glob for versioned paths
+import glob
+matches = glob.glob("/usr/local/bin/playwright-browsers/chromium-*/chrome-linux/chrome")
+chrome = matches[0] if matches else None
+```
 
 ## Template: Python3 HTTP Wrapper (Tier 1)
 
@@ -310,6 +342,17 @@ Node                          Sidecar
  |<--- {frames: [...]} --------|
  |-- read frames from /shared   |
 ```
+
+## E2E Validated Examples
+
+These combinations have been tested end-to-end on a real cluster:
+
+| Tier | Image | Hook Language | Binary Tested | Result |
+|------|-------|---------------|---------------|--------|
+| 1 | `ghcr.io/browserless/chromium:latest` | Python3 | chromium --version | Chromium 147.0.7727.0 |
+| 2 | `linuxserver/ffmpeg:latest` | Perl | ffmpeg -version | ffmpeg 8.0.1 |
+| 3 | `alpine:latest` | bash+nc | (none — fixed response) | OK |
+| -- | `pandoc/core:3.6` | (no hook) | pandoc-server | Built-in HTTP API |
 
 ## Verification Checklist
 
