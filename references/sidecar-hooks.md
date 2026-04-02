@@ -39,15 +39,37 @@ sidecars:
     image: linuxserver/ffmpeg:latest          # public image
     port: 9000
     healthPath: /health
-    command: ["perl", "-e"]                   # inject HTTP wrapper
+    command: ["bash", "-c"]
     args:
-      - |
-        # ... HTTP server script ...
+      - "echo BASE64_ENCODED_SCRIPT | base64 -d > /tmp/hook.pl && exec perl /tmp/hook.pl"
     resources:
       requests:
         cpu: 500m
         memory: 256Mi
 ```
+
+### Base64 Encoding Requirement
+
+`tntc validate` rejects newlines in sidecar `args` values. Multiline scripts
+must be base64-encoded and decoded at runtime. The pattern:
+
+1. Write the hook script as a normal file (for readability and testing)
+2. Base64-encode it: `cat hook.pl | base64 | tr -d '\n'`
+3. Use `bash -c` to decode and exec:
+
+```yaml
+command: ["bash", "-c"]
+args:
+  - "echo ENCODED | base64 -d > /tmp/hook.pl && exec perl /tmp/hook.pl"
+```
+
+The `exec` replaces bash with Perl so the process tree stays clean and
+signal handling works correctly. The script lands in `/tmp` (an emptyDir
+volume auto-provisioned by the builder).
+
+**Keep the source script alongside your workflow** (e.g., `hooks/ffmpeg.pl`)
+for version control and readability. Only the base64-encoded form goes into
+`workflow.yaml`.
 
 ## Image Compatibility
 
@@ -79,68 +101,79 @@ versions. Pin to a specific tag or digest in production, not `:latest`.
 
 Use when the image includes Python3. Cleanest option with built-in JSON.
 
+Save as `hooks/hook.py` in your tentacle directory:
+
+```python
+import http.server, json, subprocess, os, time, glob
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def log_message(self, fmt, *args):
+        print(fmt % args, flush=True)
+
+    def do_GET(self):
+        if self.path == "/health":
+            self._json_response(200, {"status": "ok"})
+        else:
+            self._text_response(404, "not found")
+
+    def do_POST(self):
+        if self.path == "/run":
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length)) if length else {}
+
+            # --- Replace this block with your binary invocation ---
+            cmd = ["my-tool", body.get("input", "")]
+            start = time.time()
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            duration_ms = int((time.time() - start) * 1000)
+
+            if result.returncode != 0:
+                self._json_response(500, {"error": result.stderr[:500]})
+                return
+
+            self._json_response(200, {
+                "stdout": result.stdout,
+                "duration_ms": duration_ms
+            })
+            # --- End replaceable block ---
+        else:
+            self._text_response(404, "not found")
+
+    def _json_response(self, code, obj):
+        body = json.dumps(obj).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _text_response(self, code, msg):
+        body = msg.encode()
+        self.send_response(code)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+httpd = http.server.HTTPServer(("0.0.0.0", 9000), Handler)
+print("HTTP wrapper listening on :9000", flush=True)
+httpd.serve_forever()
+```
+
+Encode and reference in `workflow.yaml`:
+
+```bash
+cat hooks/hook.py | base64 | tr -d '\n'
+```
+
 ```yaml
 sidecars:
   - name: my-tool
-    image: some/image:tag
+    image: some/image-with-python:tag
     port: 9000
     healthPath: /health
-    command: ["python3", "-u", "-c"]
+    command: ["bash", "-c"]
     args:
-      - |
-        import http.server, json, subprocess, os, time, glob
-
-        class Handler(http.server.BaseHTTPRequestHandler):
-            def log_message(self, fmt, *args):
-                print(fmt % args, flush=True)
-
-            def do_GET(self):
-                if self.path == "/health":
-                    self._json_response(200, {"status": "ok"})
-                else:
-                    self._text_response(404, "not found")
-
-            def do_POST(self):
-                if self.path == "/run":
-                    length = int(self.headers.get("Content-Length", 0))
-                    body = json.loads(self.rfile.read(length)) if length else {}
-
-                    # --- Replace this block with your binary invocation ---
-                    cmd = ["my-tool", body.get("input", "")]
-                    start = time.time()
-                    result = subprocess.run(cmd, capture_output=True, text=True)
-                    duration_ms = int((time.time() - start) * 1000)
-
-                    if result.returncode != 0:
-                        self._json_response(500, {"error": result.stderr[:500]})
-                        return
-
-                    self._json_response(200, {
-                        "stdout": result.stdout,
-                        "duration_ms": duration_ms
-                    })
-                    # --- End replaceable block ---
-                else:
-                    self._text_response(404, "not found")
-
-            def _json_response(self, code, obj):
-                body = json.dumps(obj).encode()
-                self.send_response(code)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-
-            def _text_response(self, code, msg):
-                body = msg.encode()
-                self.send_response(code)
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
-
-        httpd = http.server.HTTPServer(("0.0.0.0", 9000), Handler)
-        print("HTTP wrapper listening on :9000", flush=True)
-        httpd.serve_forever()
+      - "echo ENCODED | base64 -d > /tmp/hook.py && exec python3 -u /tmp/hook.py"
 ```
 
 ## Template: Perl HTTP Wrapper (Tier 2)
@@ -149,88 +182,94 @@ Use when the image has Perl but not Python3. Most Ubuntu/Debian-based images
 include `perl-base`. JSON is handled with simple string formatting — adequate
 for the fixed-shape request/response payloads sidecars use.
 
+Save as `hooks/hook.pl` in your tentacle directory:
+
+```perl
+use strict;
+use warnings;
+use IO::Socket::INET;
+
+$| = 1;  # autoflush
+
+my $server = IO::Socket::INET->new(
+    LocalAddr => '0.0.0.0', LocalPort => 9000,
+    Proto => 'tcp', Listen => 5, ReuseAddr => 1,
+) or die "Cannot bind :9000: $!\n";
+
+print "HTTP wrapper listening on :9000\n";
+
+while (my $client = $server->accept()) {
+    my $req = '';
+    while (my $line = <$client>) {
+        $req .= $line;
+        last if $line =~ /^\r?\n$/;
+    }
+    my ($method, $path) = $req =~ /^(\w+)\s+(\S+)/;
+    $method //= ''; $path //= '';
+
+    my $cl = 0;
+    $cl = $1 if $req =~ /Content-Length:\s*(\d+)/i;
+    my $body = '';
+    if ($cl > 0) { read($client, $body, $cl); }
+
+    if ($method eq 'GET' && $path eq '/health') {
+        http_json($client, 200, '{"status":"ok"}');
+    }
+    elsif ($method eq 'POST' && $path eq '/run') {
+        # --- Replace this block with your binary invocation ---
+        my ($input) = $body =~ /"input"\s*:\s*"([^"]*)"/;
+        $input //= '';
+
+        my $start = time();
+        my $output = `my-tool "$input" 2>&1`;
+        my $rc = $? >> 8;
+        my $duration_ms = (time() - $start) * 1000;
+
+        if ($rc != 0) {
+            my $err = substr($output, 0, 500);
+            $err =~ s/"/\\"/g;
+            http_json($client, 500, qq({"error":"$err"}));
+        } else {
+            $output =~ s/"/\\"/g;
+            $output =~ s/\n/\\n/g;
+            http_json($client, 200,
+                qq({"stdout":"$output","duration_ms":$duration_ms}));
+        }
+        # --- End replaceable block ---
+    }
+    else {
+        http_json($client, 404, '{"error":"not found"}');
+    }
+    close $client;
+}
+
+sub http_json {
+    my ($fh, $code, $json) = @_;
+    my $status = $code == 200 ? 'OK' : $code == 404 ? 'Not Found' : 'Error';
+    print $fh "HTTP/1.1 $code $status\r\n";
+    print $fh "Content-Type: application/json\r\n";
+    print $fh "Content-Length: " . length($json) . "\r\n";
+    print $fh "Connection: close\r\n";
+    print $fh "\r\n";
+    print $fh $json;
+}
+```
+
+Encode and reference in `workflow.yaml`:
+
+```bash
+cat hooks/hook.pl | base64 | tr -d '\n'
+```
+
 ```yaml
 sidecars:
   - name: my-tool
-    image: some/image:tag
+    image: some/image-with-perl:tag
     port: 9000
     healthPath: /health
-    command: ["perl", "-e"]
+    command: ["bash", "-c"]
     args:
-      - |
-        use strict;
-        use warnings;
-        use IO::Socket::INET;
-        use POSIX qw(strftime);
-
-        $| = 1;  # autoflush
-
-        my $server = IO::Socket::INET->new(
-            LocalAddr => '0.0.0.0', LocalPort => 9000,
-            Proto => 'tcp', Listen => 5, ReuseAddr => 1,
-        ) or die "Cannot bind :9000: $!\n";
-
-        print "HTTP wrapper listening on :9000\n";
-
-        while (my $client = $server->accept()) {
-            my $req = '';
-            while (my $line = <$client>) {
-                $req .= $line;
-                last if $line =~ /^\r?\n$/;
-            }
-            my ($method, $path) = $req =~ /^(\w+)\s+(\S+)/;
-            $method //= ''; $path //= '';
-
-            my $content_length = 0;
-            $content_length = $1 if $req =~ /Content-Length:\s*(\d+)/i;
-            my $body = '';
-            if ($content_length > 0) {
-                read($client, $body, $content_length);
-            }
-
-            if ($method eq 'GET' && $path eq '/health') {
-                http_response($client, 200, '{"status":"ok"}');
-            }
-            elsif ($method eq 'POST' && $path eq '/run') {
-                # --- Replace this block with your binary invocation ---
-                # Parse input from JSON body (simple regex extraction)
-                my ($input) = $body =~ /"input"\s*:\s*"([^"]*)"/;
-                $input //= '';
-
-                my $start = time();
-                my $output = `my-tool "$input" 2>&1`;
-                my $rc = $? >> 8;
-                my $duration_ms = (time() - $start) * 1000;
-
-                if ($rc != 0) {
-                    my $err = substr($output, 0, 500);
-                    $err =~ s/"/\\"/g;
-                    http_response($client, 500,
-                        qq({"error":"$err"}));
-                } else {
-                    $output =~ s/"/\\"/g;
-                    $output =~ s/\n/\\n/g;
-                    http_response($client, 200,
-                        qq({"stdout":"$output","duration_ms":$duration_ms}));
-                }
-                # --- End replaceable block ---
-            }
-            else {
-                http_response($client, 404, '{"error":"not found"}');
-            }
-            close $client;
-        }
-
-        sub http_response {
-            my ($fh, $code, $json) = @_;
-            my $status = $code == 200 ? 'OK' : $code == 404 ? 'Not Found' : 'Error';
-            print $fh "HTTP/1.1 $code $status\r\n";
-            print $fh "Content-Type: application/json\r\n";
-            print $fh "Content-Length: " . length($json) . "\r\n";
-            print $fh "Connection: close\r\n";
-            print $fh "\r\n";
-            print $fh $json;
-        }
+      - "echo ENCODED | base64 -d > /tmp/hook.pl && exec perl /tmp/hook.pl"
 ```
 
 ### Perl JSON Helpers
