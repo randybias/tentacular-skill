@@ -71,6 +71,12 @@ volume auto-provisioned by the builder).
 for version control and readability. Only the base64-encoded form goes into
 `workflow.yaml`.
 
+**Trust model:** Base64 encoding is for YAML syntax compliance (avoiding
+newlines in `args`), not for security. The decoded script is plaintext in the
+pod filesystem at `/tmp`. The trust boundary is the same as any Kubernetes
+manifest — whoever can `tntc deploy` controls the code that runs in the pod.
+Do not treat base64 encoding as encryption or integrity protection.
+
 ## Image Compatibility
 
 Before choosing an image, verify it includes a scripting runtime. Use the
@@ -154,6 +160,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(length)) if length else {}
 
             # --- Replace this block with your binary invocation ---
+            # SECURITY: Always use list form for subprocess.run (no shell=True).
+            # List form bypasses the shell, preventing command injection from
+            # user-controlled input. Never use shell=True or f-string commands.
             cmd = ["my-tool", body.get("input", "")]
             start = time.time()
             result = subprocess.run(cmd, capture_output=True, text=True)

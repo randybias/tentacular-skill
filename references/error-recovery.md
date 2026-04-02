@@ -218,18 +218,17 @@ patterns that avoid this issue.
 
 ### "tntc scaffold init" fails for public scaffolds
 
-Symptom: `scaffold 'name' has no local path; run 'tntc scaffold sync' first`
+Symptom: `scaffold 'name' has no local path and no remote path`
 
-Cause: `tntc scaffold sync` downloads only the scaffolds index (metadata),
-not the scaffold files themselves. Public scaffolds from GitHub require file
-download support that is not yet implemented.
-
-Fix: Clone the scaffolds repo locally and use `--source private` or `--dir`
-to point at the local copy:
+Cause: The scaffolds index was synced before the scaffold's `path` and
+`files` fields were populated. Re-sync the index to fetch updated metadata:
 ```bash
-git clone https://github.com/randybias/tentacular-scaffolds.git ~/.tentacular/quickstarts
-tntc scaffold init <name> <tentacle> --source private
+tntc scaffold sync
+tntc scaffold init <name> <tentacle>
 ```
+
+If the scaffold has a `path` and `files` in the index, `scaffold init` will
+fetch files on-demand from the remote repo. No local clone required.
 
 ### "tntc validate" rejects multiline sidecar args
 
