@@ -128,6 +128,61 @@ permissions via `permissions_set`.
 Bearer-token deploys bypass authorization entirely. To disable authz
 server-wide, set `TENTACULAR_AUTHZ_ENABLED=false`.
 
+## HTTP Redirect Targets
+
+When a contract dependency's host returns HTTP redirects (301, 302), the
+redirect target domain must also be declared in the contract. The engine's
+`--allow-net` flags are derived from contract hosts -- if the redirect target
+is not declared, the Deno runtime blocks the follow-up request.
+
+Example: if `download.example.com` redirects to `cdn.example.com`:
+
+```yaml
+contract:
+  dependencies:
+    download-source:
+      protocol: https
+      host: download.example.com
+      port: 443
+    download-cdn:
+      protocol: https
+      host: cdn.example.com
+      port: 443
+```
+
+Alternatively, declare the final target directly and skip the redirect:
+
+```yaml
+contract:
+  dependencies:
+    download-source:
+      protocol: https
+      host: cdn.example.com
+      port: 443
+```
+
+## Empty Contract Dependencies
+
+A workflow that uses sidecars but no external services still needs at least
+one contract dependency. The builder derives `--allow-import` (for the module
+proxy) from the contract section -- an empty contract means the engine cannot
+resolve imports and will crash at startup.
+
+If no real dependency exists, declare a health-check stub:
+
+```yaml
+contract:
+  version: "1"
+  dependencies:
+    health-check:
+      protocol: https
+      host: httpbin.org
+      port: 443
+```
+
+This is a known builder limitation. Sidecar-only workflows should not
+require a contract dependency, but currently do.
+
 ## When to Use Managed vs Manual Dependencies
 
 Use `tentacular-*` dependency names when `exo_status` shows the target

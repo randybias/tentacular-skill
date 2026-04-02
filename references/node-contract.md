@@ -84,6 +84,20 @@ These mistakes are caught during testing but are worth knowing up front:
 - **Assuming `input` shape without checking** -- the first node in a DAG
   receives trigger input (may be `null` or a small JSON object). Guard
   accordingly.
+- **Passing absolute URLs to `dep.fetch()`** -- `dep.fetch(path)` prepends
+  the dependency's base URL (`https://host:port`). If `path` is already an
+  absolute URL, the result is a doubled URL. Use `globalThis.fetch(url)` for
+  absolute URLs; the contract dependency still grants network access.
+- **Spreading large Uint8Arrays into String.fromCharCode()** -- Code like
+  `btoa(String.fromCharCode(...bytes))` exceeds the call stack for files
+  larger than ~10KB. Chunk the conversion:
+  ```typescript
+  const chunks: string[] = [];
+  for (let i = 0; i < bytes.length; i += 8192) {
+    chunks.push(String.fromCharCode(...bytes.subarray(i, i + 8192)));
+  }
+  const b64 = btoa(chunks.join(""));
+  ```
 
 ## See Also
 
