@@ -189,10 +189,15 @@ triggers:
 
 sidecars:
   - name: ffmpeg
-    image: ghcr.io/randybias/tentacular-ffmpeg-sidecar:v1.0.0
+    image: linuxserver/ffmpeg:latest
     port: 9000
-    protocol: http
     healthPath: /health
+    command: ["perl", "-e"]
+    args:
+      - |
+        # Inline HTTP wrapper — see references/sidecar-hooks.md for templates
+        use strict; use warnings; use IO::Socket::INET;
+        # ... (Perl Tier 2 template) ...
     resources:
       requests:
         cpu: 500m
@@ -226,16 +231,16 @@ config:
 
 ## Common Sidecar Images
 
-| Image | Use Case | Multi-arch | Notes |
-|-------|----------|-----------|-------|
-| `linuxserver/ffmpeg:latest` | Video/audio processing | arm64+amd64 | Dev/test; Ubuntu 24.04 base |
-| `ghcr.io/randybias/tentacular-ffmpeg-sidecar:*` | Video frame extraction | arm64+amd64 | Production custom image |
-| `browserless/chromium` | Screenshots, PDF generation | arm64+amd64 | Headless Chrome via HTTP |
-| `dpokidov/imagemagick` | Image conversion/processing | arm64+amd64 | Alpine-based |
+| Image | Use Case | Multi-arch | Hook Required | Available Runtimes |
+|-------|----------|-----------|---------------|-------------------|
+| `linuxserver/ffmpeg:latest` | Video/audio processing | arm64+amd64 | Yes — no HTTP API | Perl 5.38, bash, nc |
+| `pandoc/core:3.6` | Document conversion | arm64+amd64 | No — ships `pandoc-server` | nc only |
+| `ghcr.io/browserless/chromium` | Screenshots, PDF generation | arm64+amd64 | No — ships HTTP API | Python3, Node, bash |
+| `dpokidov/imagemagick` | Image conversion | TBD | Yes — no HTTP API | Perl, bash |
 
-For production use, build a minimal custom image with only the binary needed.
-See `scratch/native-code-research/RECOMMENDATION.md` for the ffmpeg custom
-image Dockerfile.
+Use public images with the HTTP hook pattern (`command:`/`args:` injection).
+See `references/sidecar-hooks.md` for wrapper templates in Python, Perl,
+and bash, and an image compatibility matrix.
 
 ## Troubleshooting
 

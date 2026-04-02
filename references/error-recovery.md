@@ -215,3 +215,96 @@ on path values read from config files.
 
 See also `references/deployment-ops.md` for environment configuration
 patterns that avoid this issue.
+
+### "tntc scaffold init" fails for public scaffolds
+
+Symptom: `scaffold 'name' has no local path and no remote path`
+
+Cause: The scaffolds index was synced before the scaffold's `path` and
+`files` fields were populated. Re-sync the index to fetch updated metadata:
+```bash
+tntc scaffold sync
+tntc scaffold init <name> <tentacle>
+```
+
+If the scaffold has a `path` and `files` in the index, `scaffold init` will
+fetch files on-demand from the remote repo. No local clone required.
+
+### "tntc validate" rejects multiline sidecar args
+
+Symptom: `sidecars[0].args[0]: must not contain newlines`
+
+Cause: The validator requires single-line sidecar args values.
+
+Fix: Base64-encode the hook script and use a single-line decode-and-exec
+pattern:
+```yaml
+command: ["bash", "-c"]
+args:
+  - "echo ENCODED | base64 -d > /tmp/hook.sh && exec sh /tmp/hook.sh"
+```
+See `references/sidecar-hooks.md` for the full encoding workflow.
+
+### YAML colon in workflow description breaks deploy
+
+Symptom: `yaml: line N: mapping values are not allowed in this context`
+during `tntc deploy`.
+
+Cause: The tntc builder's YAML serializer does not properly quote string
+values containing colons. This affects the `description:` field and
+potentially other string fields.
+
+Fix: Replace colons with dashes or semicolons in the description field:
+```yaml
+# Broken:
+description: "Tier 2: Perl HTTP wrapper on ffmpeg"
+# Fixed:
+description: "Tier 2 - Perl HTTP wrapper on ffmpeg"
+```
+
+## Sidecar Hook Failures
+
+### Sidecar health check never passes
+
+Symptom: Pod stays in CrashLoopBackOff or never becomes ready. Engine
+container logs show `sidecar health check timeout`.
+
+Diagnosis: Run `wf_logs` for the sidecar container (not the engine):
+```
+wf_logs(namespace, pod, container="<sidecar-name>")
+```
+
+Common causes:
+- Hook script has a syntax error (check base64 encoding round-trips
+  correctly: `echo ENCODED | base64 -d` should produce valid script)
+- Port mismatch between workflow.yaml `port:` and script listener port
+- Script uses port 8080 (reserved for the engine)
+- Binary not found at expected path (see Binary Path Discovery in
+  `references/sidecar-hooks.md`)
+
+### Sidecar returns empty or malformed response
+
+Symptom: Node gets unexpected data from the sidecar HTTP call.
+
+Diagnosis: Check the sidecar logs and verify the response format. Common
+issues:
+- Perl `qq()` interpolation produces invalid JSON (unescaped quotes in
+  dynamic values)
+- bash+nc loop only handles one concurrent connection -- if the engine
+  health check and node call overlap, one gets no response
+- Python handler raised an unhandled exception (check for `Traceback` in
+  sidecar logs)
+
+### dependency.fetch() URL doubling
+
+Symptom: Fetch fails with a malformed URL like
+`https://host:443/https://example.com/file.txt`.
+
+Cause: `ctx.dependency("name").fetch(url)` prepends the dependency's base
+URL (`https://host:port`) to the path argument. Passing an absolute URL
+doubles the scheme and host.
+
+Fix: Use `globalThis.fetch(url)` for absolute URLs. The contract dependency
+still grants network access to the declared host -- the contract is what
+generates the NetworkPolicy and `--allow-net` flags, not the fetch call
+itself.
