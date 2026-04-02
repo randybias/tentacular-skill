@@ -415,6 +415,16 @@ Read `references/sidecars.md` when:
 - Designing workflows that need shared file handoff between containers
 - Debugging sidecar readiness, port conflicts, or SecurityContext issues
 
+## Sidecar HTTP Hooks
+
+Wrap public Docker images with inline HTTP servers via `command:`/`args:`.
+Use public images — do not build custom tentacular sidecar images.
+
+Read `references/sidecar-hooks.md` when:
+- Wrapping a public image (ffmpeg, ImageMagick) with an HTTP interface
+- Choosing a scripting runtime (Python3, Perl, bash) for the wrapper
+- Checking image compatibility before deploying a sidecar
+
 ## Deployment and Operations
 
 Deployment flow: validate -> visualize -> test -> live test -> deploy ->
@@ -447,4 +457,5 @@ Read `references/deployment-ops.md` when:
 | `references/authorization.md` | Permission model, presets, CLI/MCP tools |
 | `references/scaffold-lifecycle.md` | Scaffold lifecycle, CLI reference, extraction heuristics |
 | `references/sidecars.md` | Sidecar schema, communication patterns, security model, troubleshooting |
+| `references/sidecar-hooks.md` | Public image HTTP hook pattern, wrapper templates, image compatibility |
 | `references/error-recovery.md` | Error playbooks and triage |
