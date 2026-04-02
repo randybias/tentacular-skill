@@ -400,3 +400,121 @@ Before deploying a sidecar with the hook pattern:
    readOnlyRootFilesystem — no writing outside `/tmp` and `/shared`
 6. **Multi-arch:** The image supports the target cluster's architecture
    (check with `docker manifest inspect IMAGE`)
+
+## Testing Sidecar Hooks
+
+### Local Verification (before deploy)
+
+Test the hook script locally with Docker before encoding and deploying:
+
+```bash
+# 1. Start the image with your hook script mounted
+docker run --rm -d --name hook-test -p 9000:9000 \
+  -v $(pwd)/hooks/hook.pl:/tmp/hook.pl \
+  linuxserver/ffmpeg:latest \
+  bash -c "exec perl /tmp/hook.pl"
+
+# 2. Test health endpoint
+curl -s http://localhost:9000/health | jq .
+
+# 3. Test your custom endpoint
+curl -s -X POST http://localhost:9000/version \
+  -H 'Content-Type: application/json' -d '{}' | jq .
+
+# 4. Clean up
+docker stop hook-test
+```
+
+### Base64 Round-Trip Check
+
+Verify the encoded script decodes correctly before deploying:
+
+```bash
+# Encode
+cat hooks/hook.pl | base64 | tr -d '\n' > /tmp/encoded.txt
+
+# Decode and diff — should produce no output
+echo $(cat /tmp/encoded.txt) | base64 -d | diff - hooks/hook.pl
+```
+
+### Simplistic E2E Test Pattern
+
+For validating a hook tier or image compatibility, use this minimal
+structure. The node calls a single sidecar endpoint and returns the result:
+
+```yaml
+# workflow.yaml
+name: e2e-hook-test
+version: "1.0"
+description: "Hook validation test"
+
+sidecars:
+  - name: my-sidecar
+    image: some/image:tag
+    port: 9000
+    healthPath: /health
+    command: ["bash", "-c"]
+    args:
+      - "echo ENCODED | base64 -d > /tmp/hook.sh && exec sh /tmp/hook.sh"
+    resources:
+      requests:
+        cpu: 50m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
+
+triggers:
+  - type: manual
+
+nodes:
+  check-tool:
+    path: ./nodes/check-tool.ts
+
+edges: []
+
+contract:
+  version: "1"
+  dependencies:
+    health-check:
+      protocol: https
+      host: httpbin.org
+      port: 443
+```
+
+```typescript
+// nodes/check-tool.ts
+import type { Context } from "tentacular";
+
+export default async function run(
+  ctx: Context,
+  _input: unknown,
+): Promise<Record<string, unknown>> {
+  const res = await globalThis.fetch("http://localhost:9000/version", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  if (!res.ok) throw new Error(`Sidecar error: HTTP ${res.status}`);
+  const result = await res.json();
+  ctx.log.info(`Result: ${JSON.stringify(result)}`);
+  return result as Record<string, unknown>;
+}
+```
+
+Deploy, run, check output, remove:
+
+```bash
+tntc validate
+tntc deploy --namespace <ns> --image ghcr.io/randybias/tentacular-engine:latest --force
+# Then via MCP: wf_run(namespace, name) -> check output -> wf_remove(namespace, name)
+```
+
+### Namespace Quota Considerations
+
+When testing multiple sidecars in the same namespace, deploy and test
+serially. Large sidecar images (like `browserless/chromium` at ~1GB) consume
+significant CPU and memory during pull and startup. A namespace with a 4-CPU
+limit can typically run only one large sidecar at a time.
+
+Pattern: deploy -> run -> verify -> `wf_remove` -> deploy next.
