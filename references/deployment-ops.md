@@ -60,7 +60,7 @@ cookbook.
 - [ ] `tntc test` passes with zero drift
 - [ ] `workflow-diagram.md` and `contract-summary.md` committed to repo
 - [ ] If workflow uses `tentacular-*` dependencies, confirm exoskeleton
-      services are available via `exo_status`
+      services are available via `enclave_info` (check `exo_services` field)
 
 ## Dependency Preflight
 

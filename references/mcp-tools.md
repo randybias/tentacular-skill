@@ -253,34 +253,6 @@ Verify gVisor sandboxing by creating an ephemeral verification pod with the
 gVisor runtime class and checking kernel identity. The pod is created and
 deleted in a single operation (net effect is zero).
 
-## Exoskeleton
-
-### exo_status
-
-Check exoskeleton service availability on the cluster. Returns the
-enabled/disabled state of each exoskeleton service (Postgres, NATS, RustFS)
-and whether the exoskeleton is enabled overall. Also reports auth/SSO status.
-
-Call this before adding `tentacular-*` dependencies to a workflow contract.
-
-Returns: `enabled`, `cleanup_on_undeploy`, `postgres_available`,
-`nats_available`, `rustfs_available`, `spire_available`,
-`nats_spiffe_enabled`, `auth_enabled`, `auth_issuer`.
-
-### exo_registration
-
-Check the exoskeleton registration state of a deployed workflow. Shows which
-services the workflow is registered with and the current credential/scope
-status.
-
-Returns: `found`, `namespace`, `name`, `data` (map of Secret key/value
-pairs, sensitive values redacted).
-
-### exo_list
-
-List all workflows with exoskeleton registrations by scanning Secrets across
-all namespaces. Read-only. No parameters.
-
 ## Module Proxy
 
 ### proxy_status

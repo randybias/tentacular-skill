@@ -14,13 +14,13 @@ description: Build, test, and deploy TypeScript workflow DAGs on Kubernetes usin
 | 3 | Node returns `{ status: "ok" }` or `{}` (performative node) | Downstream nodes receive empty data | Return actual result data |
 | 4 | Skipping the contract -- writing nodes before declaring dependencies | Runtime throws "not declared in contract" | Write contract first, then nodes |
 | 5 | Writing code before user confirms the DAG design | Rework when design changes | STOP after DAG design, wait for confirmation |
-| 6 | Adding `tentacular-*` deps without calling `exo_status` first | Deploy fails if exoskeleton is disabled | Always check `exo_status` first |
+| 6 | Adding `tentacular-*` deps without checking enclave exoskeleton services | Deploy fails if exoskeleton is disabled | Check `enclave_info` exo_services first |
 | 7 | Adding `host`/`port`/`auth` fields to a `tentacular-*` dependency | MCP server overwrites them during provisioning | Only set `protocol:` for managed deps |
 | 8 | Deploying without `tntc test --pipeline` passing | Broken DAG in production | Run full pipeline test before deploy |
 | 9 | Ignoring auth failures (401/403) in node tests | Auth fails silently in production | Treat every 401/403 as a blocker |
 | 10 | Passing literal `~` in KUBECONFIG paths instead of expanding | Path resolution fails | Expand to full absolute path |
 | 11 | Using `ctx.fetch()` or `ctx.secrets` instead of `ctx.dependency()` | Legacy API, flagged as contract violation | Use `ctx.dependency(name)` |
-| 12 | Deploying with `exo_status.auth_enabled=true` without running `tntc login` | Deploy rejected with auth error | Run `tntc login` before deploying |
+| 12 | Deploying when auth is enabled without running `tntc login` | Deploy rejected with auth error | Run `tntc login` before deploying |
 | 13 | Fixture `expected: {}` -- test passes even when node returns nothing | False green tests | Set meaningful expected values |
 | 14 | Skipping cluster profile before workflow design | Wrong assumptions about cluster capabilities | Always run Phase 3 first |
 
@@ -42,7 +42,7 @@ Building or developing? **CLI.** Querying or operating the cluster? **MCP tools.
 | Cluster health and security audit | MCP | `health_*`, `audit_*` |
 | Enclave management | MCP | `enclave_*` |
 | Install MCP server | Helm | `helm install` |
-| Workflow needs backing services? | MCP | Check `exo_status` first |
+| Workflow needs backing services? | MCP | Check `enclave_info` exo_services |
 
 ---
 
@@ -121,9 +121,6 @@ permission model.
 | `audit_netpol` | Audit network policies |
 | `audit_psa` | Audit Pod Security Admission |
 | `gvisor_check` | Check gVisor availability |
-| `exo_status` | Exoskeleton service status |
-| `exo_registration` | Workflow exo registration details |
-| `exo_list` | List all exo registrations |
 | `proxy_status` | Module proxy readiness |
 
 ### Write Tools (create or modify resources)
@@ -229,7 +226,7 @@ proceeding.
 
 3. **What external dependencies does it need?**
    List every API, database, queue, storage.
-   Check `exo_status` for managed services.
+   Check `cluster_profile` exo_services for managed services.
 
 4. **What is the data flow?**
    For each node, define: Input -> Action -> Output -> Edge.
