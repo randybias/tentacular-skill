@@ -225,7 +225,9 @@ this channel for our team." The Kraken will:
    and chosen `default_mode`
 6. Enumerate channel members via `conversations.members` Slack API
 7. For each member: send an OIDC auth link via **DM** (never post auth links
-   in the channel — they are single-use and could be clicked by the wrong person)
+   in the channel — they are single-use and could be clicked by the wrong person).
+   Post a message **in the channel** notifying each user that they have a sign-in
+   link waiting in their DMs (e.g., "@alice, check your DMs for a sign-in link").
 8. As each member completes OIDC sign-in, call `enclave_sync` with `add_members`
 9. Confirm when the enclave is ready and list who has been added
 
@@ -244,7 +246,8 @@ separate mapping or IdP group lookup is needed.
 When a user joins the Slack channel, The Kraken:
 1. Detects the `member_joined_channel` event
 2. Sends an OIDC auth link via **DM** to the new member (never in the channel)
-3. Once the member completes sign-in, calls `enclave_sync` with `add_members`
+3. Posts a notification in the channel: "@user, check your DMs to complete sign-in"
+4. Once the member completes sign-in, calls `enclave_sync` with `add_members`
    using the verified OIDC email
 
 As an agent operating directly on MCP tools, call `enclave_sync` with
