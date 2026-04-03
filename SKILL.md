@@ -25,6 +25,7 @@ description: Build, test, and deploy TypeScript workflow DAGs on Kubernetes usin
 | 14 | Skipping cluster profile before workflow design | Wrong assumptions about cluster capabilities | Always run Phase 3 first |
 | 15 | Acting on vague requests without clarification | Builds wrong thing, wastes resources, gets stuck | Ask what, why, and confirm before writing any code |
 | 16 | Using "workspace" or "group" instead of "enclave" or "member" | Confuses users with legacy terminology | Always use enclave/member terminology |
+| 17 | Using `tentacular-engine:latest` instead of a versioned tag | Image may not exist or be stale, causing ImagePullBackOff | Always use the release version tag (e.g., `v0.8.0-rc.1`) matching the tntc CLI version |
 
 ---
 
