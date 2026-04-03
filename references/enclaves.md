@@ -218,22 +218,37 @@ The Kraken handles this end-to-end. A user in the Slack channel says "Set up
 this channel for our team." The Kraken will:
 1. Verify the requester is the Slack channel owner
 2. Propose the enclave name (slugified channel name) and ask for confirmation
-3. Ask two sizing questions (data volume, number of automations) to pick a quota preset
-4. Call `enclave_provision` with the channel name slug, owner identity, and quota preset
-5. Walk current channel members through OIDC sign-in via `enclave_sync`
-6. Confirm when the enclave is ready
+3. Ask the permission level question: "Should people outside your team be
+   able to view status?" (maps to `open-read` vs `member-edit`)
+4. Ask two sizing questions (data volume, number of automations) to pick a quota preset
+5. Call `enclave_provision` with the channel name slug, owner identity, quota preset,
+   and chosen `default_mode`
+6. Enumerate channel members via `conversations.members` Slack API
+7. For each member: send an OIDC auth link via **DM** (never post auth links
+   in the channel — they are single-use and could be clicked by the wrong person)
+8. As each member completes OIDC sign-in, call `enclave_sync` with `add_members`
+9. Confirm when the enclave is ready and list who has been added
 
 **Important:** Enclave membership is managed through the Slack channel, NOT
 through IdP groups. When a user joins the Slack channel and completes OIDC
 sign-in, The Kraken adds them as an enclave member via `enclave_sync`. IdP
 groups (Keycloak) are used for identity only, not for authorization.
 
+**Identity mapping:** The through-line is OIDC email. The Kraken uses the
+Slack API (`users.info`) to get each member's Slack profile email, then
+confirms it matches their OIDC email claim during authentication. No
+separate mapping or IdP group lookup is needed.
+
 ### Add a member to an enclave
 
-When a user joins the Slack channel, The Kraken handles it automatically:
-prompts OIDC sign-in, then calls `enclave_sync` with `add_members`. As an
-agent operating directly on MCP tools, call `enclave_sync` with `add_members`
-after verifying the member has completed OIDC authentication.
+When a user joins the Slack channel, The Kraken:
+1. Detects the `member_joined_channel` event
+2. Sends an OIDC auth link via **DM** to the new member (never in the channel)
+3. Once the member completes sign-in, calls `enclave_sync` with `add_members`
+   using the verified OIDC email
+
+As an agent operating directly on MCP tools, call `enclave_sync` with
+`add_members` after verifying the member has completed OIDC authentication.
 
 ### Transfer tentacle ownership
 
@@ -254,6 +269,8 @@ happens automatically when a Slack channel is archived.
 |---------|--------------|-----|
 | Mapping channel members to IdP groups | Enclave membership comes from Slack channel membership, NOT IdP groups. Keycloak is identity-only. | Use `enclave_sync` with `add_members`/`remove_members` to manage membership. The Kraken syncs Slack channel membership automatically. |
 | Asking the user to name the enclave | Creates naming divergence between channel and enclave | Default to the slugified Slack channel name, confirm with user |
+| Posting OIDC auth links in the channel | Auth URLs are single-use and could be clicked by the wrong person | Always send auth links via DM to the specific user |
+| Asking users for member emails manually | The Kraken has Slack API access (`conversations.members`, `users.info`) | Use the Slack API to enumerate channel members and resolve emails automatically |
 | Checking enclave membership via Keycloak groups | Groups are no longer the authority — Keycloak is identity-only | Check `enclave-members` annotation via `enclave_info` |
 | Assuming the namespace name matches the channel display name | Channel rename updates the display name but not the namespace slug | Use `enclave_info` to get the current `name` slug |
 | Operating on a frozen enclave | `wf_apply` rejected, cron paused | Call `enclave_sync` with `status: "active"` to unfreeze |
