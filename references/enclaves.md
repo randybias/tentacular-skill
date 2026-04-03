@@ -10,14 +10,14 @@ Every tentacle lives inside exactly one enclave.
 ```
 Enclave = {
   name:         string    // DNS-1123 slug (set at creation, immutable)
-  display_name: string    // Slack channel name (updated on rename)
   owner:        string    // OIDC email of Slack channel owner
   members:      string[]  // OIDC emails of registered members (max 100)
   platform:     string    // "slack" (discord/teams: future)
   channel_id:   string    // platform-specific ID (e.g., "C08XXXXXXX")
+  channel_name: string    // current Slack channel name
   namespace:    string    // K8s namespace (= enclave name)
   exo_services: object    // provisioned backing services
-  status:       string    // "active" | "frozen" | "archived"
+  status:       string    // "active" | "frozen"
 }
 ```
 
@@ -40,9 +40,9 @@ provision → active → frozen → deprovision
 | **frozen** | Slack channel archived | Existing tentacles keep running; cron triggers paused; no new deployments allowed |
 | **deprovision** | Explicit request by enclave owner | All tentacles removed, exo cleaned up, namespace deleted, channel reverts to regular mode |
 
-Channel rename: `display_name` annotation updated. K8s namespace name does not
-change (K8s does not support namespace rename). The enclave `name` slug is
-always the original slug.
+Channel rename: `channel_name` annotation updated via `enclave_sync`. K8s
+namespace name does not change (K8s does not support namespace rename). The
+enclave `name` slug is always the original slug.
 
 ## MCP Tools
 
@@ -83,9 +83,9 @@ count, quota usage, and current permission mode.
 |-----------|------|----------|-------------|
 | `name` | string | yes | Enclave name (DNS-1123 slug) |
 
-Returns: `name`, `display_name`, `owner_email`, `members` (array),
-`platform`, `channel_id`, `status`, `quota_preset`, `tentacle_count`, `exo_services`
-(per-service available flags), `mode`, `created_at`, `updated_at`.
+Returns: `name`, `owner`, `owner_sub`, `members` (array),
+`platform`, `channel_id`, `channel_name`, `status`, `quota_preset`, `tentacle_count`,
+`exo_services` (per-service available flags), `created_at`, `updated_at`.
 
 ### enclave_list (Read-only)
 
@@ -93,10 +93,11 @@ Lists enclaves the caller has read access to. With OIDC auth, returns only
 enclaves where the caller is owner or member (or has other-read permission).
 With bearer token, returns all enclaves.
 
-No required parameters. Optional: `platform` filter.
+No required parameters. Optional: `caller_email` filter (set automatically for
+OIDC callers).
 
-Returns: array of enclave summary objects (name, display_name, owner_email,
-member_count, tentacle_count, status, quota_preset).
+Returns: array of enclave summary objects (name, owner, status, platform,
+channel_name, created_at, members).
 
 ### enclave_sync (Write)
 
@@ -109,16 +110,12 @@ Can also be called by the enclave owner directly.
 | `name` | string | yes | Enclave name |
 | `add_members` | array of strings | no | OIDC emails to add as members |
 | `remove_members` | array of strings | no | OIDC emails to remove |
-| `owner_email` | string | no | New owner email (ownership transfer) |
-| `owner_sub` | string | no | New owner subject (required when `owner_email` is set) |
+| `new_owner` | string | no | New owner email (must be a current member) |
 | `new_channel_name` | string | no | Updated display name |
 | `new_status` | string | no | `"active"` or `"frozen"` |
 
 Only the enclave owner (or bearer token) can call this tool. Returns updated
 enclave info object.
-
-When a member is removed who owns tentacles, those tentacles are automatically
-transferred to the enclave owner.
 
 ### enclave_deprovision (Destructive)
 
@@ -129,11 +126,11 @@ This is permanent and cannot be undone.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `name` | string | yes | Enclave name |
-| `confirm` | boolean | yes | Must be `true` |
 
-Only the enclave owner (or bearer token) can call this tool.
+Only the enclave owner (or bearer token) can call this tool. Confirmation is
+handled CLI-side (--confirm flag), not as a tool parameter.
 
-Always confirm with the user before calling. Returns `{ deleted: true, name }`.
+Always confirm with the user before calling. Returns `{ name, deleted, tentacles_removed }`.
 
 ## Permission Model
 
@@ -228,11 +225,6 @@ Only the enclave owner can do this. Use `enclave_sync` once `enclave_chown`
 is available, or use the bearer-token kubectl path as a break-glass measure.
 The Kraken exposes this via: "Transfer [tentacle] to [user]."
 
-### Resize an enclave
-
-Call `enclave_sync` with an updated `quota_preset` field. No downtime. Existing
-tentacles are unaffected; new pods inherit the updated quota.
-
 ### Freeze an enclave
 
 Call `enclave_sync` with `new_status: "frozen"`. Existing tentacles keep running;
@@ -243,7 +235,6 @@ happens automatically when a Slack channel is archived.
 
 | Mistake | What Happens | Fix |
 |---------|--------------|-----|
-| Calling `enclave_deprovision` without `confirm: true` | Tool returns error | Pass `confirm: true` explicitly |
 | Checking enclave membership via Keycloak groups | Groups are no longer the authority — Keycloak is identity-only | Check `enclave-members` annotation via `enclave_info` |
 | Assuming the namespace name matches the channel display name | Channel rename updates the display name but not the namespace slug | Use `enclave_info` to get the current `name` slug |
 | Operating on a frozen enclave | `wf_apply` rejected, cron paused | Call `enclave_sync` with `status: "active"` to unfreeze |
