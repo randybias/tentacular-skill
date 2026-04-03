@@ -62,7 +62,7 @@ the requester is the channel owner.
 | `channel_id` | string | yes | Platform-specific channel ID |
 | `channel_name` | string | yes | Human-readable channel name |
 | `members` | array of strings | no | Initial member OIDC emails |
-| `quota` | string | no | `small`, `medium` (default), or `large` |
+| `quota_preset` | string | no | `small`, `medium` (default), or `large` |
 
 Returns: enclave info object (same shape as `enclave_info`).
 
@@ -84,8 +84,8 @@ count, quota usage, and current permission mode.
 | `name` | string | yes | Enclave name (DNS-1123 slug) |
 
 Returns: `name`, `display_name`, `owner_email`, `members` (array),
-`platform`, `channel_id`, `status`, `quota`, `tentacle_count`, `exo`
-(per-service enabled/ready flags), `mode`, `created_at`, `updated_at`.
+`platform`, `channel_id`, `status`, `quota_preset`, `tentacle_count`, `exo_services`
+(per-service available flags), `mode`, `created_at`, `updated_at`.
 
 ### enclave_list (Read-only)
 
@@ -96,7 +96,7 @@ With bearer token, returns all enclaves.
 No required parameters. Optional: `platform` filter.
 
 Returns: array of enclave summary objects (name, display_name, owner_email,
-member_count, tentacle_count, status, quota).
+member_count, tentacle_count, status, quota_preset).
 
 ### enclave_sync (Write)
 
@@ -111,8 +111,8 @@ Can also be called by the enclave owner directly.
 | `remove_members` | array of strings | no | OIDC emails to remove |
 | `owner_email` | string | no | New owner email (ownership transfer) |
 | `owner_sub` | string | no | New owner subject (required when `owner_email` is set) |
-| `channel_name` | string | no | Updated display name |
-| `status` | string | no | `"active"` or `"frozen"` |
+| `new_channel_name` | string | no | Updated display name |
+| `new_status` | string | no | `"active"` or `"frozen"` |
 
 Only the enclave owner (or bearer token) can call this tool. Returns updated
 enclave info object.
@@ -230,12 +230,12 @@ The Kraken exposes this via: "Transfer [tentacle] to [user]."
 
 ### Resize an enclave
 
-Call `enclave_sync` with an updated `quota` field. No downtime. Existing
+Call `enclave_sync` with an updated `quota_preset` field. No downtime. Existing
 tentacles are unaffected; new pods inherit the updated quota.
 
 ### Freeze an enclave
 
-Call `enclave_sync` with `status: "frozen"`. Existing tentacles keep running;
+Call `enclave_sync` with `new_status: "frozen"`. Existing tentacles keep running;
 cron triggers are paused; `wf_apply` will be rejected until unfrozen. This
 happens automatically when a Slack channel is archived.
 
