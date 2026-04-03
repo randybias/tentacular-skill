@@ -4,7 +4,7 @@ For parameter schemas, use MCP `tools/list` at runtime. This file covers
 tool behavior, response semantics, and usage patterns. The SKILL.md safety
 classification table tells you the risk level of each tool.
 
-The tentacular MCP server exposes 34 tools organized into 12 groups. Agents
+The tentacular MCP server exposes 33 tools organized into 11 groups. Agents
 can discover all tools and their full parameter schemas via the MCP
 `tools/list` method -- no `tntc` CLI or `KUBECONFIG` needed.
 
@@ -182,40 +182,6 @@ Use health checks in a layered approach:
 3. **Deep dive** -- `wf_health` with `detail=true` for execution telemetry,
    then `wf_logs` for pod logs.
 
-## Namespace Management
-
-### ns_create
-
-Create a new managed namespace with network policies, resource quotas, and
-workflow RBAC. Quota preset options: `small`, `medium`, `large`.
-
-When OIDC auth is active, the caller becomes the namespace owner. Accepts
-`group` (group name), `mode` (raw rwx string), and `share` (preset name)
-parameters for namespace-level permissions. Also accepts `default_mode` and
-`default_group` to set inheritance defaults for new tentacles in the namespace.
-
-### ns_delete
-
-Delete a managed namespace. Only namespaces with the tentacular managed-by
-label can be deleted. This is destructive.
-
-### ns_get
-
-Get details for a namespace including labels, status, quota summary, and
-limit range summary.
-
-### ns_update
-
-Update labels, annotations, and/or resource quota preset on a
-tentacular-managed namespace. Rejects changes to the `managed-by` label.
-Requires at least one update field.
-
-### ns_list
-
-List all namespaces managed by tentacular. No parameters required.
-
-## Credentials
-
 ## Cluster Operations
 
 ### cluster_preflight
@@ -314,55 +280,6 @@ pairs, sensitive values redacted).
 
 List all workflows with exoskeleton registrations by scanning Secrets across
 all namespaces. Read-only. No parameters.
-
-## Permissions
-
-### Tentacle Permissions
-
-### permissions_get
-
-Get owner, group, and mode for a deployed workflow. Read-only.
-
-Parameters: `namespace`, `name`.
-
-Returns: `namespace`, `name`, `owner_sub`, `owner_email`, `owner_name`,
-`group`, `mode` (rwx string, e.g., `rwxr-x---`), `preset` (matching
-preset name or empty), `auth_provider`.
-
-### permissions_set
-
-Set group or share preset for a deployed workflow. Only the workflow
-owner can call this tool. When authenticated via bearer token (no OIDC
-identity), authz is bypassed entirely. At least one of `group` or
-`share` must be provided.
-
-Parameters: `namespace`, `name`, `group` (optional, new group name),
-`share` (optional, preset name: `private`, `group-read`, `group-run`,
-`group-edit`, `public-read`).
-
-Returns: `namespace`, `name`, `group`, `mode` (rwx string), `preset`.
-
-### Namespace Permissions
-
-### ns_permissions_get
-
-Get owner, group, and mode for a namespace. Read-only.
-
-Parameters: `namespace`.
-
-Returns: `namespace`, `owner_sub`, `owner_email`, `owner_name`, `group`,
-`mode` (rwx string), `preset`, `default_mode`, `default_group`.
-
-### ns_permissions_set
-
-Set group, mode, or share preset for a namespace. Only the namespace
-owner can call this tool. Bearer-token requests bypass authz. At least
-one of `group`, `mode`, or `share` must be provided.
-
-Parameters: `namespace`, `group` (optional), `mode` (optional, raw rwx
-string), `share` (optional, preset name).
-
-Returns: `namespace`, `group`, `mode` (rwx string), `preset`.
 
 ## Module Proxy
 

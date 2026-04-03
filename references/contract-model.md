@@ -111,19 +111,9 @@ deployer identity and authorization metadata:
 - `tentacular.io/updated-by-sub`: last updater's OIDC subject
 - `tentacular.io/updated-by-email`: last updater's email
 
-These annotations are visible in `wf_describe` output. Use `permissions_get`
-to check the effective owner, group, and mode. Only the owner can modify
-permissions via `permissions_set`.
-
-**Permission presets:**
-
-| Preset | Mode | Meaning |
-|--------|------|---------|
-| `private` | `rwx------` | Owner only |
-| `group-read` | `rwxr-x---` | Owner full, group can read and execute (default) |
-| `group-run` | `rwx--x---` | Owner full, group can execute only |
-| `group-edit` | `rwxrwx---` | Owner and group have full access |
-| `public-read` | `rwxr--r--` | Owner full, everyone can read |
+These annotations are visible in `wf_describe` output. The enclave owner
+and tentacle owner can modify permissions via `--group` and `--share` flags
+on `tntc deploy`. See `references/authorization.md` for permission presets.
 
 Bearer-token deploys bypass authorization entirely. To disable authz
 server-wide, set `TENTACULAR_AUTHZ_ENABLED=false`.

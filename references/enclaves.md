@@ -243,7 +243,6 @@ happens automatically when a Slack channel is archived.
 
 | Mistake | What Happens | Fix |
 |---------|--------------|-----|
-| Using `ns_create`/`ns_delete` for enclave namespaces | Creates a namespace without enclave annotations — membership and auth won't work | Use `enclave_provision`/`enclave_deprovision` |
 | Calling `enclave_deprovision` without `confirm: true` | Tool returns error | Pass `confirm: true` explicitly |
 | Checking enclave membership via Keycloak groups | Groups are no longer the authority — Keycloak is identity-only | Check `enclave-members` annotation via `enclave_info` |
 | Assuming the namespace name matches the channel display name | Channel rename updates the display name but not the namespace slug | Use `enclave_info` to get the current `name` slug |

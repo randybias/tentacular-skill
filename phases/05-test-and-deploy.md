@@ -172,13 +172,13 @@ assigned owner, group, and mode permissions. Check and adjust as needed:
 
 ```bash
 # Check current permissions
-tntc permissions get <namespace> <workflow-name>
+tntc permissions get <enclave> <workflow-name>
 
 # Change mode (rwx string or preset name)
-tntc permissions chmod group-read <namespace> <workflow-name>
+tntc permissions chmod member-read <enclave> <workflow-name>
 
 # Change group
-tntc permissions chgrp <group-name> <namespace> <workflow-name>
+tntc permissions chgrp <group-name> <enclave> <workflow-name>
 ```
 
 Only the workflow owner can modify permissions. Bearer-token deploys

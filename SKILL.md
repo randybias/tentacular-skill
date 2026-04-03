@@ -41,7 +41,6 @@ Building or developing? **CLI.** Querying or operating the cluster? **MCP tools.
 | View logs / pods / events / jobs | MCP | `wf_logs`, `wf_pods`, `wf_events`, `wf_jobs` |
 | Cluster health and security audit | MCP | `health_*`, `audit_*` |
 | Enclave management | MCP | `enclave_*` |
-| Namespace management (legacy) | MCP | `ns_*` |
 | Install MCP server | Helm | `helm install` |
 | Workflow needs backing services? | MCP | Check `exo_status` first |
 
@@ -104,8 +103,6 @@ permission model.
 |------|-------------|
 | `enclave_info` | Get enclave details: members, owner, exo status, quota |
 | `enclave_list` | List enclaves the caller has access to |
-| `ns_get` | Get namespace details, quota, limit range (legacy — prefer `enclave_info`) |
-| `ns_list` | List managed namespaces (legacy — prefer `enclave_list`) |
 | `wf_list` | List deployed workflows |
 | `wf_describe` | Describe a single workflow |
 | `wf_status` | Get resource status for a deployment |
@@ -114,11 +111,11 @@ permission model.
 | `wf_events` | List namespace events |
 | `wf_jobs` | List Jobs and CronJobs |
 | `wf_health` | Single workflow G/A/R health |
-| `wf_health_ns` | Namespace-wide G/A/R health |
+| `wf_health_ns` | Enclave-wide G/A/R health |
 | `cluster_preflight` | Run preflight checks |
 | `cluster_profile` | Profile cluster capabilities |
 | `health_nodes` | Node readiness and capacity |
-| `health_ns_usage` | Namespace resource utilization |
+| `health_ns_usage` | Enclave resource utilization |
 | `health_cluster_summary` | Cluster-wide resource summary |
 | `audit_rbac` | Audit RBAC findings |
 | `audit_netpol` | Audit network policies |
@@ -128,8 +125,6 @@ permission model.
 | `exo_registration` | Workflow exo registration details |
 | `exo_list` | List all exo registrations |
 | `proxy_status` | Module proxy readiness |
-| `permissions_get` | Get owner, group, and mode for a workflow |
-| `ns_permissions_get` | Get owner, group, and mode for a namespace |
 
 ### Write Tools (create or modify resources)
 
@@ -137,20 +132,17 @@ permission model.
 |------|-------------|
 | `enclave_provision` | Create enclave: namespace + exo + membership + RBAC + quota |
 | `enclave_sync` | Update enclave membership, owner, channel name, or status |
-| `ns_create` | Create namespace with policies, quotas, RBAC (legacy — prefer `enclave_provision`) |
-| `ns_update` | Update namespace labels, annotations, quota (legacy — prefer `enclave_sync`) |
 | `wf_apply` | Apply K8s manifests as a named deployment |
 | `wf_run` | Trigger a workflow execution |
 | `wf_restart` | Rollout restart a deployment |
-| `permissions_set` | Set group or mode for a workflow (owner-only) |
-| `ns_permissions_set` | Set group or mode for a namespace (owner-only; legacy) |
+| `gvisor_annotate_ns` | Annotate an enclave namespace with gVisor runtime class |
+| `gvisor_verify` | Verify gVisor sandboxing with an ephemeral test pod (net-zero) |
 
 ### Destructive Tools (data loss possible -- confirm with user)
 
 | Tool | Description |
 |------|-------------|
 | `enclave_deprovision` | Delete enclave and all contents: tentacles, exo data, namespace |
-| `ns_delete` | Delete a managed namespace and all contents (legacy — prefer `enclave_deprovision`) |
 | `wf_remove` | Remove all resources for a deployment |
 
 ---
@@ -343,12 +335,10 @@ Read `references/architecture.md` when:
 
 ## MCP Tools
 
-39 tools organized into 13 groups: enclave management (new), namespace
-management (legacy), workflow lifecycle, execution, discovery, observability,
-health, cluster ops, audit, exoskeleton, permissions, deploy, and module proxy.
-Enclave tools replace the namespace, exoskeleton, and permission tools for all
-new work. Use the safety classification table above for risk assessment and
-`tools/list` for parameter schemas.
+33 tools organized into 11 groups: enclave management, workflow lifecycle,
+execution, discovery, observability, health, cluster ops, audit, exoskeleton,
+gVisor, and module proxy. Use the safety classification table above for risk
+assessment and `tools/list` for parameter schemas.
 
 Read `references/mcp-tools.md` when:
 - Need tool behavior details beyond the safety table
@@ -393,8 +383,7 @@ Read `references/contract-model.md` when:
 
 An enclave is the primary organizational unit: a Slack channel + Kubernetes
 namespace + exoskeleton services + team membership in one governed space. All
-tentacles live inside an enclave. Namespace tools (`ns_*`) are legacy — prefer
-`enclave_*` tools for all new work.
+tentacles live inside an enclave. Use `enclave_*` tools to manage enclaves.
 
 Read `references/enclaves.md` when:
 - Provisioning or deprovisioning an enclave (`enclave_provision`, `enclave_deprovision`)
@@ -404,15 +393,14 @@ Read `references/enclaves.md` when:
 
 ## Authorization
 
-Tentacles use POSIX-like owner/group/mode permissions enforced at the
-MCP layer. Namespaces are directories; tentacles are files. In enclave
-mode, "group" is resolved from enclave membership, not IdP groups.
+Tentacles use POSIX-like owner/member/other permissions enforced at the
+MCP layer. Enclaves are directories; tentacles are files. "Group" means
+enclave member — resolved from the enclave membership list, not IdP groups.
 
 Read `references/authorization.md` when:
 - Deploying with `--group` or `--share` flags
-- Managing permissions (`permissions_get`, `permissions_set`, `chmod`, `chgrp`)
 - Troubleshooting access denied errors
-- Understanding the CheckEnclave vs CheckTentacle evaluator paths
+- Understanding the CheckEnclave evaluator path and permission presets
 
 ## Scaffold Lifecycle
 

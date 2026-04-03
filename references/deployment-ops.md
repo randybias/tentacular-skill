@@ -70,9 +70,9 @@ at runtime.
 
 Run these checks after cluster profiling and before build/deploy:
 
-- **Namespace exists** -- use `ns_get` (MCP) or `tntc cluster check -n
-  <namespace>` to confirm the target namespace is created. If missing,
-  create it with `ns_create` (MCP) or ask the cluster admin.
+- **Enclave exists** -- use `enclave_info` (MCP) or `tntc cluster check -n
+  <enclave>` to confirm the target enclave is provisioned. If missing,
+  create it with `enclave_provision` (MCP) or ask the cluster admin.
 - **Database exists** -- if the workflow declares a `postgresql` dependency
   in `contract.dependencies`, verify the database is provisioned and
   reachable before deploying. Mock tests do not catch a missing database.
