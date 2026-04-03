@@ -68,11 +68,10 @@ bypasses the tentacle check entirely (superuser).
 
 ### Default Inheritance
 
-Enclaves can specify defaults that new tentacles inherit when the deployer
-does not pass explicit `--group` or `--share` flags:
-
-- `tentacular.io/default-mode`: default mode for new tentacles (e.g., `rwxrwx---`)
-- `tentacular.io/default-group`: default group for new tentacles
+Enclaves can specify a default mode for new tentacles via the
+`tentacular.io/enclave-default-mode` annotation. When a deployer does not
+pass an explicit `--mode` flag, this default is used. If unset, new tentacles
+inherit the enclave's own `tentacular.io/mode`.
 
 ## Presets
 
@@ -107,24 +106,25 @@ are not consulted.
 ## CLI Commands
 
 ```bash
-# Deploy with permissions
-tntc deploy --group platform-team --share member-read
+# Deploy with explicit mode
+tntc deploy --mode member-read
 
-# --- Tentacle permissions (2 positional args) ---
+# Deploy to a specific enclave
+tntc deploy --enclave marketing
 
-# Check permissions on a tentacle
-tntc permissions get <enclave> <name>
+# --- Enclave management ---
 
-# Change mode (accepts preset names or raw rwx strings)
-tntc permissions set <enclave> <name> --mode member-edit
-tntc permissions set <enclave> <name> --mode rwxrwx---
+# List enclaves you have access to
+tntc enclave list
 
-# Change group
-tntc permissions set <enclave> <name> --group dev-team
+# Get enclave details
+tntc enclave info <enclave>
 
-# Shortcuts
-tntc chmod <mode-or-preset> <enclave>/<name>
-tntc chgrp <group> <enclave>/<name>
+# Provision a new enclave
+tntc enclave provision <name> --owner-email user@example.com
+
+# Update enclave membership or status
+tntc enclave sync <name> --add-members user@example.com
 ```
 
 ## Annotations
@@ -135,7 +135,7 @@ for the full annotation schema and create-vs-update stamping behavior.
 ## Key Behaviors
 
 - **Create path**: deployer becomes owner, annotations stamped from OIDC identity + flags
-- **Update path**: ownership preserved, only provenance/audit annotations updated. Owner-only can change group/mode via `--group`/`--share` flags on redeploy.
+- **Update path**: ownership preserved, only provenance/audit annotations updated. Owner can change mode via `--mode` flag on redeploy.
 - **Bearer-token**: bypasses all authz checks, owner fields left empty
 - **Unowned resources denied**: resources without `owner-sub` annotation are denied to OIDC callers. Use bearer-token to adopt unowned resources.
 - **Member membership**: evaluated live from the enclave annotation at request time, never from JWT group claims
@@ -162,16 +162,14 @@ To stamp ownership on unowned resources:
 ```bash
 # Stamp ownership on an enclave namespace
 kubectl annotate ns team-prod \
-  tentacular.io/owner-sub=<user-uuid> \
-  tentacular.io/owner-email=user@example.com \
-  tentacular.io/owner-name="User Name" \
+  tentacular.io/enclave-owner=user@example.com \
+  tentacular.io/enclave-owner-sub=<user-uuid> \
   tentacular.io/mode=rwxrwx---
 
 # Stamp ownership on a tentacle deployment
 kubectl annotate deploy -n team-prod my-tentacle \
+  tentacular.io/owner=user@example.com \
   tentacular.io/owner-sub=<user-uuid> \
-  tentacular.io/owner-email=user@example.com \
-  tentacular.io/owner-name="User Name" \
   tentacular.io/mode=rwxrwx---
 ```
 
@@ -183,9 +181,8 @@ No `chown` command exists yet. Transfer ownership via kubectl:
 
 ```bash
 kubectl annotate deploy -n team-prod my-tentacle \
+  tentacular.io/owner=new-user@example.com \
   tentacular.io/owner-sub=<new-user-uuid> \
-  tentacular.io/owner-email=new-user@example.com \
-  tentacular.io/owner-name="New User" \
   --overwrite
 ```
 
