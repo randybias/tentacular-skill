@@ -3,6 +3,11 @@
 POSIX-like owner/group/mode permissions for tentacles, enforced at the
 MCP server layer. Namespaces act as directories; tentacles act as files.
 
+**v0.8.0 note:** Enclaves replace namespaces as the primary abstraction.
+The permission model carries forward unchanged, but "group" is now resolved
+from enclave membership (annotation-based) instead of IdP group claims.
+See `references/enclaves.md` for the enclave-specific auth model.
+
 ## Permission Model
 
 Every tentacle has three permission scopes, each with read/write/execute bits:
@@ -73,6 +78,11 @@ does not pass explicit `--group` or `--share` flags:
 
 ## Presets
 
+### Legacy Namespace Presets (pre-enclave)
+
+Used with `ns_create`, `ns_update`, `permissions_set`, and `ns_permissions_set`.
+These presets interpret "group" as an IdP group from the Keycloak JWT.
+
 | Name | Mode | Meaning |
 |------|------|---------|
 | `private` | `rwx------` | Owner only |
@@ -81,14 +91,52 @@ does not pass explicit `--group` or `--share` flags:
 | `group-edit` | `rwxrwx---` | Owner and group full access |
 | `public-read` | `rwxr--r--` | Owner full, everyone can read |
 
+### Enclave Presets (v0.8.0+)
+
+Used with `enclave_provision` and `enclave_sync`. "Member" replaces "group" —
+checked against `tentacular.io/enclave-members` annotation, not IdP claims.
+
+| Name | Mode | Meaning |
+|------|------|---------|
+| `private` | `rwx------` | Owner only |
+| `member-read` | `rwxr-x---` | Owner full, members read+run |
+| `member-edit` | `rwxrwx---` | Owner and members full access (default for enclaves) |
+| `open-read` | `rwxrwxr--` | Owner and members full; visitors read-only |
+| `open-run` | `rwxrwxr-x` | Owner and members full; visitors read+run |
+
 ## Evaluator Flow
 
+Two evaluator paths exist depending on whether the namespace is an enclave
+(has `tentacular.io/enclave` annotation) or a legacy managed namespace.
+
+### Enclave Path (v0.8.0+): CheckEnclave
+
+Called when the target namespace has `tentacular.io/enclave` set.
+
 ```
-1. Bearer-token caller? → ALLOW (full trust bypass)
-2. No owner-sub annotation? → DENY (unowned resource; use bearer-token to adopt)
+1. Evaluator disabled? → Allow
+2. Bearer-token caller? → Allow (platform operators only)
+3. No enclave annotation? → Deny (not an enclave namespace)
+4. Caller is enclave owner? → Allow (superuser — bypasses tentacle check)
+5. Caller is tentacle owner? → check owner bits (positions 0-2)
+6. Caller email in enclave-members? → check member bits (positions 3-5)
+7. Otherwise → check other bits (positions 6-8)
+```
+
+Step 6 reads `tentacular.io/enclave-members` from the namespace. IdP groups
+are not consulted.
+
+### Legacy Path (pre-enclave): CheckTentacle
+
+Called when the target namespace does NOT have `tentacular.io/enclave` set.
+Preserved for backwards compatibility during transition.
+
+```
+1. Bearer-token caller? → Allow (full trust bypass)
+2. No owner-sub annotation? → Deny (unowned resource; use bearer-token to adopt)
 3. Caller is owner? → check owner bits (positions 0-2)
 4. Tentacle group in caller's JWT groups? → check group bits (positions 3-5)
-5. Otherwise → check others bits (positions 6-8)
+5. Otherwise → check other bits (positions 6-8)
 ```
 
 ## CLI Commands

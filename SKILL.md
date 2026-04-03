@@ -40,7 +40,8 @@ Building or developing? **CLI.** Querying or operating the cluster? **MCP tools.
 | Trigger workflow run | MCP | `wf_run` |
 | View logs / pods / events / jobs | MCP | `wf_logs`, `wf_pods`, `wf_events`, `wf_jobs` |
 | Cluster health and security audit | MCP | `health_*`, `audit_*` |
-| Namespace management | MCP | `ns_*` |
+| Enclave management | MCP | `enclave_*` |
+| Namespace management (legacy) | MCP | `ns_*` |
 | Install MCP server | Helm | `helm install` |
 | Workflow needs backing services? | MCP | Check `exo_status` first |
 
@@ -101,8 +102,10 @@ permission model.
 
 | Tool | Description |
 |------|-------------|
-| `ns_get` | Get namespace details, quota, limit range |
-| `ns_list` | List managed namespaces |
+| `enclave_info` | Get enclave details: members, owner, exo status, quota |
+| `enclave_list` | List enclaves the caller has access to |
+| `ns_get` | Get namespace details, quota, limit range (legacy — prefer `enclave_info`) |
+| `ns_list` | List managed namespaces (legacy — prefer `enclave_list`) |
 | `wf_list` | List deployed workflows |
 | `wf_describe` | Describe a single workflow |
 | `wf_status` | Get resource status for a deployment |
@@ -132,19 +135,22 @@ permission model.
 
 | Tool | Description |
 |------|-------------|
-| `ns_create` | Create namespace with policies, quotas, RBAC |
-| `ns_update` | Update namespace labels, annotations, quota |
+| `enclave_provision` | Create enclave: namespace + exo + membership + RBAC + quota |
+| `enclave_sync` | Update enclave membership, owner, channel name, or status |
+| `ns_create` | Create namespace with policies, quotas, RBAC (legacy — prefer `enclave_provision`) |
+| `ns_update` | Update namespace labels, annotations, quota (legacy — prefer `enclave_sync`) |
 | `wf_apply` | Apply K8s manifests as a named deployment |
 | `wf_run` | Trigger a workflow execution |
 | `wf_restart` | Rollout restart a deployment |
 | `permissions_set` | Set group or mode for a workflow (owner-only) |
-| `ns_permissions_set` | Set group or mode for a namespace (owner-only) |
+| `ns_permissions_set` | Set group or mode for a namespace (owner-only; legacy) |
 
 ### Destructive Tools (data loss possible -- confirm with user)
 
 | Tool | Description |
 |------|-------------|
-| `ns_delete` | Delete a managed namespace and all contents |
+| `enclave_deprovision` | Delete enclave and all contents: tentacles, exo data, namespace |
+| `ns_delete` | Delete a managed namespace and all contents (legacy — prefer `enclave_deprovision`) |
 | `wf_remove` | Remove all resources for a deployment |
 
 ---
@@ -337,11 +343,12 @@ Read `references/architecture.md` when:
 
 ## MCP Tools
 
-34 tools organized into 12 groups: namespace management,
-workflow lifecycle, execution, discovery, observability, health, cluster
-ops, audit, exoskeleton, permissions, deploy, and module proxy. Use the safety
-classification table above for risk assessment and `tools/list` for
-parameter schemas.
+39 tools organized into 13 groups: enclave management (new), namespace
+management (legacy), workflow lifecycle, execution, discovery, observability,
+health, cluster ops, audit, exoskeleton, permissions, deploy, and module proxy.
+Enclave tools replace the namespace, exoskeleton, and permission tools for all
+new work. Use the safety classification table above for risk assessment and
+`tools/list` for parameter schemas.
 
 Read `references/mcp-tools.md` when:
 - Need tool behavior details beyond the safety table
@@ -382,15 +389,30 @@ Read `references/contract-model.md` when:
 - Working with exoskeleton services
 - Configuring SSO/auth for deploy
 
+## Enclaves
+
+An enclave is the primary organizational unit: a Slack channel + Kubernetes
+namespace + exoskeleton services + team membership in one governed space. All
+tentacles live inside an enclave. Namespace tools (`ns_*`) are legacy — prefer
+`enclave_*` tools for all new work.
+
+Read `references/enclaves.md` when:
+- Provisioning or deprovisioning an enclave (`enclave_provision`, `enclave_deprovision`)
+- Managing members, ownership, or status (`enclave_sync`)
+- Choosing a quota preset (small / medium / large)
+- Troubleshooting access denied errors in an enclave context
+
 ## Authorization
 
 Tentacles use POSIX-like owner/group/mode permissions enforced at the
-MCP layer. Namespaces are directories; tentacles are files.
+MCP layer. Namespaces are directories; tentacles are files. In enclave
+mode, "group" is resolved from enclave membership, not IdP groups.
 
 Read `references/authorization.md` when:
 - Deploying with `--group` or `--share` flags
 - Managing permissions (`permissions_get`, `permissions_set`, `chmod`, `chgrp`)
 - Troubleshooting access denied errors
+- Understanding the CheckEnclave vs CheckTentacle evaluator paths
 
 ## Scaffold Lifecycle
 
@@ -454,7 +476,8 @@ Read `references/deployment-ops.md` when:
 | `references/workflow-spec.md` | workflow.yaml schema and triggers |
 | `references/contract-model.md` | Contract deps, exoskeleton, SSO |
 | `references/deployment-ops.md` | Deploy flow, promotion, env config |
-| `references/authorization.md` | Permission model, presets, CLI/MCP tools |
+| `references/enclaves.md` | Enclave model, lifecycle, tools, permission presets, common workflows |
+| `references/authorization.md` | Permission model, presets, CLI/MCP tools, CheckEnclave/CheckTentacle paths |
 | `references/scaffold-lifecycle.md` | Scaffold lifecycle, CLI reference, extraction heuristics |
 | `references/sidecars.md` | Sidecar schema, communication patterns, security model, troubleshooting |
 | `references/sidecar-hooks.md` | Public image HTTP hook pattern, wrapper templates, image compatibility |
