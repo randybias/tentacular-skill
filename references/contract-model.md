@@ -38,17 +38,17 @@ provisioning.
 
 ### Detection
 
-Always call `exo_status` before building a workflow that needs database,
-messaging, or object storage. The response indicates which exoskeleton
-services are enabled on the cluster. It also reports `auth_enabled` and
-`auth_issuer` -- use these to determine whether SSO login is required before
-deploying.
+Always call `cluster_profile` before building a workflow that needs database,
+messaging, or object storage. The response includes an exoskeleton service
+inventory indicating which services are available on the cluster. It also
+reports OIDC auth configuration -- use this to determine whether SSO login
+is required before deploying.
 
 ## Authentication and SSO
 
-When `exo_status` returns `auth_enabled: true`, or when `mcp_endpoint` is
-configured for an environment, the cluster requires OIDC authentication. The
-user must configure SSO and authenticate before deploying.
+When `cluster_profile` reports OIDC authentication is active, or when
+`mcp_endpoint` is configured for an environment, the cluster requires OIDC
+authentication. The user must configure SSO and authenticate before deploying.
 
 ### SSO Setup
 
@@ -72,8 +72,8 @@ restricted permissions (0600).
 
 ### Login Flow
 
-1. Check auth status: if `exo_status` shows `auth_enabled: true`, instruct
-   the user to run `tntc login` before deploying.
+1. Check auth status: if `cluster_profile` reports OIDC auth is active,
+   instruct the user to run `tntc login` before deploying.
 2. `tntc login -e <env>` initiates a browser-based login via Google SSO
    through Keycloak. The CLI opens the browser automatically or prints a URL
    if browser launch fails. Google SSO is restricted to an
@@ -111,19 +111,9 @@ deployer identity and authorization metadata:
 - `tentacular.io/updated-by-sub`: last updater's OIDC subject
 - `tentacular.io/updated-by-email`: last updater's email
 
-These annotations are visible in `wf_describe` output. Use `permissions_get`
-to check the effective owner, group, and mode. Only the owner can modify
-permissions via `permissions_set`.
-
-**Permission presets:**
-
-| Preset | Mode | Meaning |
-|--------|------|---------|
-| `private` | `rwx------` | Owner only |
-| `group-read` | `rwxr-x---` | Owner full, group can read and execute (default) |
-| `group-run` | `rwx--x---` | Owner full, group can execute only |
-| `group-edit` | `rwxrwx---` | Owner and group have full access |
-| `public-read` | `rwxr--r--` | Owner full, everyone can read |
+These annotations are visible in `wf_describe` output. The enclave owner
+and tentacle owner can modify permissions via `--group` and `--share` flags
+on `tntc deploy`. See `references/authorization.md` for permission presets.
 
 Bearer-token deploys bypass authorization entirely. To disable authz
 server-wide, set `TENTACULAR_AUTHZ_ENABLED=false`.
@@ -185,9 +175,9 @@ require a contract dependency, but currently do.
 
 ## When to Use Managed vs Manual Dependencies
 
-Use `tentacular-*` dependency names when `exo_status` shows the target
-service is enabled. The MCP server provisions scoped credentials and injects
-them automatically.
+Use `tentacular-*` dependency names when `cluster_profile` confirms the
+target exoskeleton service is available. The MCP server provisions scoped
+credentials and injects them automatically.
 
 Use manually configured dependencies (with explicit host, port, auth) when:
 
@@ -253,7 +243,8 @@ const pg = ctx.dependency("my-postgres");
 
 ## Anti-Confusion Rules
 
-- NEVER add `tentacular-*` dependencies without checking `exo_status` first.
+- NEVER add `tentacular-*` dependencies without checking `cluster_profile`
+  first to confirm the target exoskeleton service is available.
 - NEVER add `host`, `port`, `database`, or `auth` fields to a `tentacular-*`
   dependency -- the MCP server overwrites them during provisioning.
 - ALWAYS ask the user whether they want exoskeleton-managed or self-managed
@@ -261,7 +252,7 @@ const pg = ctx.dependency("my-postgres");
 - A workflow with `tentacular-*` dependencies WILL FAIL on a cluster without
   the exoskeleton. This is by design, not a bug. The error message is
   explicit.
-- If `exo_status` returns `auth_enabled: true`, instruct the user to run
+- If `cluster_profile` reports OIDC auth is active, instruct the user to run
   `tntc login` BEFORE deploying. A deploy without a valid OIDC token will
   fail with an authentication error.
 
@@ -269,13 +260,13 @@ const pg = ctx.dependency("my-postgres");
 
 Before deploying a workflow with exoskeleton dependencies:
 
-1. Call `exo_status` to check service availability.
-2. If `auth_enabled` is `true`:
+1. Call `cluster_profile` to check service availability and auth config.
+2. If OIDC authentication is active:
    a. Ask the user to run `tntc whoami` to check login status.
    b. If not logged in, instruct: `tntc login`.
    c. Confirm identity with `tntc whoami`.
-3. Verify required services are available (e.g., `postgres_available`,
-   `nats_available`).
+3. Verify required exoskeleton services are listed as available in the
+   cluster profile.
 4. Proceed with `tntc deploy`.
 
 ## NATS Isolation and Known Limitations
@@ -333,9 +324,9 @@ This is destructive and permanent. Cleanup runs best-effort for all
 configured services, not only those the workflow declared.
 
 **Agent decision before calling `wf_remove`:** When removing a workflow that
-has exoskeleton dependencies, first call `exo_status` and check
-`cleanup_on_undeploy`. If it is `true`, warn the user explicitly before
-proceeding:
+has exoskeleton dependencies, check whether `cleanup_on_undeploy` is enabled
+(visible in `enclave_info` exo_services output). If it is `true`, warn the
+user explicitly before proceeding:
 
 > Removing this workflow will permanently delete its Postgres schema, RustFS
 > objects, and NATS artifacts. This cannot be undone. Do you want to proceed?

@@ -14,13 +14,13 @@ description: Build, test, and deploy TypeScript workflow DAGs on Kubernetes usin
 | 3 | Node returns `{ status: "ok" }` or `{}` (performative node) | Downstream nodes receive empty data | Return actual result data |
 | 4 | Skipping the contract -- writing nodes before declaring dependencies | Runtime throws "not declared in contract" | Write contract first, then nodes |
 | 5 | Writing code before user confirms the DAG design | Rework when design changes | STOP after DAG design, wait for confirmation |
-| 6 | Adding `tentacular-*` deps without calling `exo_status` first | Deploy fails if exoskeleton is disabled | Always check `exo_status` first |
+| 6 | Adding `tentacular-*` deps without checking enclave exoskeleton services | Deploy fails if exoskeleton is disabled | Check `enclave_info` exo_services first |
 | 7 | Adding `host`/`port`/`auth` fields to a `tentacular-*` dependency | MCP server overwrites them during provisioning | Only set `protocol:` for managed deps |
 | 8 | Deploying without `tntc test --pipeline` passing | Broken DAG in production | Run full pipeline test before deploy |
 | 9 | Ignoring auth failures (401/403) in node tests | Auth fails silently in production | Treat every 401/403 as a blocker |
 | 10 | Passing literal `~` in KUBECONFIG paths instead of expanding | Path resolution fails | Expand to full absolute path |
 | 11 | Using `ctx.fetch()` or `ctx.secrets` instead of `ctx.dependency()` | Legacy API, flagged as contract violation | Use `ctx.dependency(name)` |
-| 12 | Deploying with `exo_status.auth_enabled=true` without running `tntc login` | Deploy rejected with auth error | Run `tntc login` before deploying |
+| 12 | Deploying when auth is enabled without running `tntc login` | Deploy rejected with auth error | Run `tntc login` before deploying |
 | 13 | Fixture `expected: {}` -- test passes even when node returns nothing | False green tests | Set meaningful expected values |
 | 14 | Skipping cluster profile before workflow design | Wrong assumptions about cluster capabilities | Always run Phase 3 first |
 
@@ -40,9 +40,9 @@ Building or developing? **CLI.** Querying or operating the cluster? **MCP tools.
 | Trigger workflow run | MCP | `wf_run` |
 | View logs / pods / events / jobs | MCP | `wf_logs`, `wf_pods`, `wf_events`, `wf_jobs` |
 | Cluster health and security audit | MCP | `health_*`, `audit_*` |
-| Namespace management | MCP | `ns_*` |
+| Enclave management | MCP | `enclave_*` |
 | Install MCP server | Helm | `helm install` |
-| Workflow needs backing services? | MCP | Check `exo_status` first |
+| Workflow needs backing services? | MCP | Check `enclave_info` exo_services |
 
 ---
 
@@ -101,8 +101,8 @@ permission model.
 
 | Tool | Description |
 |------|-------------|
-| `ns_get` | Get namespace details, quota, limit range |
-| `ns_list` | List managed namespaces |
+| `enclave_info` | Get enclave details: members, owner, exo status, quota |
+| `enclave_list` | List enclaves the caller has access to |
 | `wf_list` | List deployed workflows |
 | `wf_describe` | Describe a single workflow |
 | `wf_status` | Get resource status for a deployment |
@@ -111,40 +111,35 @@ permission model.
 | `wf_events` | List namespace events |
 | `wf_jobs` | List Jobs and CronJobs |
 | `wf_health` | Single workflow G/A/R health |
-| `wf_health_ns` | Namespace-wide G/A/R health |
+| `wf_health_ns` | Enclave-wide G/A/R health |
 | `cluster_preflight` | Run preflight checks |
 | `cluster_profile` | Profile cluster capabilities |
 | `health_nodes` | Node readiness and capacity |
-| `health_ns_usage` | Namespace resource utilization |
+| `health_ns_usage` | Enclave resource utilization |
 | `health_cluster_summary` | Cluster-wide resource summary |
 | `audit_rbac` | Audit RBAC findings |
 | `audit_netpol` | Audit network policies |
 | `audit_psa` | Audit Pod Security Admission |
 | `gvisor_check` | Check gVisor availability |
-| `exo_status` | Exoskeleton service status |
-| `exo_registration` | Workflow exo registration details |
-| `exo_list` | List all exo registrations |
 | `proxy_status` | Module proxy readiness |
-| `permissions_get` | Get owner, group, and mode for a workflow |
-| `ns_permissions_get` | Get owner, group, and mode for a namespace |
 
 ### Write Tools (create or modify resources)
 
 | Tool | Description |
 |------|-------------|
-| `ns_create` | Create namespace with policies, quotas, RBAC |
-| `ns_update` | Update namespace labels, annotations, quota |
+| `enclave_provision` | Create enclave: namespace + exo + membership + RBAC + quota |
+| `enclave_sync` | Update enclave membership, owner, channel name, or status |
 | `wf_apply` | Apply K8s manifests as a named deployment |
 | `wf_run` | Trigger a workflow execution |
 | `wf_restart` | Rollout restart a deployment |
-| `permissions_set` | Set group or mode for a workflow (owner-only) |
-| `ns_permissions_set` | Set group or mode for a namespace (owner-only) |
+| `gvisor_annotate_ns` | Annotate an enclave namespace with gVisor runtime class |
+| `gvisor_verify` | Verify gVisor sandboxing with an ephemeral test pod (net-zero) |
 
 ### Destructive Tools (data loss possible -- confirm with user)
 
 | Tool | Description |
 |------|-------------|
-| `ns_delete` | Delete a managed namespace and all contents |
+| `enclave_deprovision` | Delete enclave and all contents: tentacles, exo data, namespace |
 | `wf_remove` | Remove all resources for a deployment |
 
 ---
@@ -231,7 +226,7 @@ proceeding.
 
 3. **What external dependencies does it need?**
    List every API, database, queue, storage.
-   Check `exo_status` for managed services.
+   Check `cluster_profile` exo_services for managed services.
 
 4. **What is the data flow?**
    For each node, define: Input -> Action -> Output -> Edge.
@@ -337,11 +332,10 @@ Read `references/architecture.md` when:
 
 ## MCP Tools
 
-34 tools organized into 12 groups: namespace management,
-workflow lifecycle, execution, discovery, observability, health, cluster
-ops, audit, exoskeleton, permissions, deploy, and module proxy. Use the safety
-classification table above for risk assessment and `tools/list` for
-parameter schemas.
+33 tools organized into 11 groups: enclave management, workflow lifecycle,
+execution, discovery, observability, health, cluster ops, audit, exoskeleton,
+gVisor, and module proxy. Use the safety classification table above for risk
+assessment and `tools/list` for parameter schemas.
 
 Read `references/mcp-tools.md` when:
 - Need tool behavior details beyond the safety table
@@ -382,15 +376,28 @@ Read `references/contract-model.md` when:
 - Working with exoskeleton services
 - Configuring SSO/auth for deploy
 
+## Enclaves
+
+An enclave is the primary organizational unit: a Slack channel + Kubernetes
+namespace + exoskeleton services + team membership in one governed space. All
+tentacles live inside an enclave. Use `enclave_*` tools to manage enclaves.
+
+Read `references/enclaves.md` when:
+- Provisioning or deprovisioning an enclave (`enclave_provision`, `enclave_deprovision`)
+- Managing members, ownership, or status (`enclave_sync`)
+- Choosing a quota preset (small / medium / large)
+- Troubleshooting access denied errors in an enclave context
+
 ## Authorization
 
-Tentacles use POSIX-like owner/group/mode permissions enforced at the
-MCP layer. Namespaces are directories; tentacles are files.
+Tentacles use POSIX-like owner/member/other permissions enforced at the
+MCP layer. Enclaves are directories; tentacles are files. "Group" means
+enclave member — resolved from the enclave membership list, not IdP groups.
 
 Read `references/authorization.md` when:
 - Deploying with `--group` or `--share` flags
-- Managing permissions (`permissions_get`, `permissions_set`, `chmod`, `chgrp`)
 - Troubleshooting access denied errors
+- Understanding the CheckEnclave evaluator path and permission presets
 
 ## Scaffold Lifecycle
 
@@ -454,7 +461,8 @@ Read `references/deployment-ops.md` when:
 | `references/workflow-spec.md` | workflow.yaml schema and triggers |
 | `references/contract-model.md` | Contract deps, exoskeleton, SSO |
 | `references/deployment-ops.md` | Deploy flow, promotion, env config |
-| `references/authorization.md` | Permission model, presets, CLI/MCP tools |
+| `references/enclaves.md` | Enclave model, lifecycle, tools, permission presets, common workflows |
+| `references/authorization.md` | Permission model, presets, CLI/MCP tools, CheckEnclave/CheckTentacle paths |
 | `references/scaffold-lifecycle.md` | Scaffold lifecycle, CLI reference, extraction heuristics |
 | `references/sidecars.md` | Sidecar schema, communication patterns, security model, troubleshooting |
 | `references/sidecar-hooks.md` | Public image HTTP hook pattern, wrapper templates, image compatibility |

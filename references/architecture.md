@@ -111,7 +111,7 @@ Tentacular uses three categories of namespaces:
 |-----------|---------|
 | `tentacular-system` | MCP server and secure control plane. Protected -- no workflow tools can target this namespace. |
 | `tentacular-support` | Secure support systems. Hosts the esm.sh module proxy. Protected from workflow operations. |
-| All others with `app.kubernetes.io/managed-by=tentacular` | Workflow namespaces. Created by `ns_create`, managed by workflow tools. |
+| All others with `app.kubernetes.io/managed-by=tentacular` | Enclave namespaces. Created by `enclave_provision`, managed by workflow and enclave tools. |
 
 ## MCP Configuration
 

@@ -1,7 +1,9 @@
 # Authorization Reference
 
-POSIX-like owner/group/mode permissions for tentacles, enforced at the
-MCP server layer. Namespaces act as directories; tentacles act as files.
+POSIX-like owner/member/other permissions for tentacles, enforced at the
+MCP server layer. Enclaves act as directories; tentacles act as files.
+"Group" means enclave member — evaluated from the `tentacular.io/enclave-members`
+annotation, not IdP group claims.
 
 ## Permission Model
 
@@ -10,8 +12,8 @@ Every tentacle has three permission scopes, each with read/write/execute bits:
 | Scope | Check | Example |
 |-------|-------|---------|
 | Owner | `deployer.Subject == tentacle.owner-sub` | Creator of the tentacle |
-| Group | `tentacle.group in deployer.Groups` (from JWT) | IdP group assigned to the tentacle |
-| Others | Everyone else | Any authenticated OIDC user |
+| Member | `deployer.Email in enclave.enclave-members` | Registered enclave member |
+| Other | Everyone else | Any authenticated OIDC user |
 
 Permission bits map to operations:
 
@@ -21,19 +23,19 @@ Permission bits map to operations:
 | Write (`w`) | `wf_apply` (update), `wf_remove` |
 | Execute (`x`) | `wf_run`, `wf_restart` |
 
-## Namespace Permissions
+## Enclave Permissions
 
-Namespaces are directories; tentacles are files. Both layers use the same
-owner/group/mode model, and both must pass for an operation to succeed.
+Enclaves are directories; tentacles are files. Both layers use the same
+owner/member/other model, and both must pass for an operation to succeed.
 
 ### Directory/File Analogy
 
 | Concept | POSIX | Tentacular |
 |---------|-------|------------|
-| Directory | `/home/team/` | Namespace `team-prod` |
+| Directory | `/home/team/` | Enclave `team-prod` |
 | File | `/home/team/report.sh` | Tentacle `team-prod/report-gen` |
-| `ls` a directory | Requires Read on the directory | `wf_list` requires Read on the namespace |
-| Create a file | Requires Write on the directory | `wf_apply` (create) requires Write on the namespace |
+| `ls` a directory | Requires Read on the directory | `wf_list` requires Read on the enclave |
+| Create a file | Requires Write on the directory | `wf_apply` (create) requires Write on the enclave |
 | Read a file | Requires Read on the file | `wf_describe` requires Read on the tentacle |
 | Execute a file | Requires Execute on the file | `wf_run` requires Execute on the tentacle |
 
@@ -41,103 +43,89 @@ owner/group/mode model, and both must pass for an operation to succeed.
 
 Every operation checks permissions in order:
 
-1. **Namespace check** — does the caller have the required bit on the namespace?
+1. **Enclave check** — does the caller have the required bit on the enclave?
 2. **Tentacle check** — does the caller have the required bit on the tentacle?
 
-If either check fails, the request is denied.
+If either check fails, the request is denied. Exception: the enclave owner
+bypasses the tentacle check entirely (superuser).
 
-### Namespace Permission Bits
+### Enclave Permission Bits
 
-| Bit | Namespace Operations |
-|-----|---------------------|
+| Bit | Enclave Operations |
+|-----|-------------------|
 | Read (`r`) | `wf_list`, `wf_health_ns`, `wf_pods`, `wf_logs`, `wf_events`, `wf_jobs` (when no tentacle name is specified) |
-| Write (`w`) | `wf_apply` (create a new tentacle in the namespace), `ns_update`, `ns_delete` |
+| Write (`w`) | `wf_apply` (create a new tentacle in the enclave) |
 | Execute (`x`) | Reserved for future use |
 
-### Namespace Ownership
+### Enclave Ownership
 
-`ns_create` stamps the same ownership annotations on the namespace as
-`wf_apply` stamps on tentacles:
+`enclave_provision` stamps ownership annotations on the namespace:
 
-- `tentacular.io/owner-sub`, `owner-email`, `owner-name` — set from OIDC identity
-- `tentacular.io/group` — from `--group` flag or empty
-- `tentacular.io/mode` — from `--share`/`--mode` flag or default `rwxr-x---`
+- `tentacular.io/enclave-owner` — OIDC email of the channel owner
+- `tentacular.io/enclave-owner-sub` — OIDC subject of the owner
+- `tentacular.io/enclave-members` — comma-separated OIDC emails of members
+- `tentacular.io/mode` — from `quota` preset or default `rwxrwx---`
 
 ### Default Inheritance
 
-Namespaces can specify defaults that new tentacles inherit when the deployer
+Enclaves can specify defaults that new tentacles inherit when the deployer
 does not pass explicit `--group` or `--share` flags:
 
 - `tentacular.io/default-mode`: default mode for new tentacles (e.g., `rwxrwx---`)
-- `tentacular.io/default-group`: default group for new tentacles (e.g., `platform-eng`)
+- `tentacular.io/default-group`: default group for new tentacles
 
 ## Presets
+
+Used with `enclave_provision` and `enclave_sync`. "Member" is checked against
+`tentacular.io/enclave-members` annotation on the namespace — not IdP claims.
 
 | Name | Mode | Meaning |
 |------|------|---------|
 | `private` | `rwx------` | Owner only |
-| `group-read` | `rwxr-x---` | Owner full, group read+execute (default) |
-| `group-run` | `rwx--x---` | Owner full, group execute only |
-| `group-edit` | `rwxrwx---` | Owner and group full access |
-| `public-read` | `rwxr--r--` | Owner full, everyone can read |
+| `member-read` | `rwxr-x---` | Owner full, members read+run |
+| `member-edit` | `rwxrwx---` | Owner and members full access (default for enclaves) |
+| `open-read` | `rwxrwxr--` | Owner and members full; visitors read-only |
+| `open-run` | `rwxrwxr-x` | Owner and members full; visitors read+run |
 
-## Evaluator Flow
+## Evaluator Flow: CheckEnclave
+
+Called for all enclave namespaces (has `tentacular.io/enclave` annotation).
 
 ```
-1. Bearer-token caller? → ALLOW (full trust bypass)
-2. No owner-sub annotation? → DENY (unowned resource; use bearer-token to adopt)
-3. Caller is owner? → check owner bits (positions 0-2)
-4. Tentacle group in caller's JWT groups? → check group bits (positions 3-5)
-5. Otherwise → check others bits (positions 6-8)
+1. Evaluator disabled? → Allow
+2. Bearer-token caller? → Allow (platform operators only)
+3. No enclave annotation? → Deny (not an enclave namespace)
+4. Caller is enclave owner? → Allow (superuser — bypasses tentacle check)
+5. Caller is tentacle owner? → check owner bits (positions 0-2)
+6. Caller email in enclave-members? → check member bits (positions 3-5)
+7. Otherwise → check other bits (positions 6-8)
 ```
+
+Step 6 reads `tentacular.io/enclave-members` from the namespace. IdP groups
+are not consulted.
 
 ## CLI Commands
 
 ```bash
 # Deploy with permissions
-tntc deploy --group platform-team --share group-read
+tntc deploy --group platform-team --share member-read
 
 # --- Tentacle permissions (2 positional args) ---
 
 # Check permissions on a tentacle
-tntc permissions get <namespace> <name>
+tntc permissions get <enclave> <name>
 
 # Change mode (accepts preset names or raw rwx strings)
-tntc permissions set <namespace> <name> --mode group-edit
-tntc permissions set <namespace> <name> --mode rwxrwx---
+tntc permissions set <enclave> <name> --mode member-edit
+tntc permissions set <enclave> <name> --mode rwxrwx---
 
 # Change group
-tntc permissions set <namespace> <name> --group dev-team
+tntc permissions set <enclave> <name> --group dev-team
 
 # Shortcuts
-tntc chmod <mode-or-preset> <namespace>/<name>
-tntc chgrp <group> <namespace>/<name>
-
-# --- Namespace permissions (1 positional arg) ---
-
-# Check permissions on a namespace
-tntc permissions get <namespace>
-
-# Change namespace mode
-tntc permissions set <namespace> --mode group-edit
-
-# Change namespace group
-tntc permissions set <namespace> --group platform-eng
-
-# Shortcuts for namespaces
-tntc chmod <mode-or-preset> <namespace>
-tntc chgrp <group> <namespace>
+tntc chmod <mode-or-preset> <enclave>/<name>
+tntc chgrp <group> <enclave>/<name>
 ```
-
-## MCP Tools
-
-**Tentacle permissions:**
-- `permissions_get(namespace, name)` — returns owner, group, mode, preset. Requires Read.
-- `permissions_set(namespace, name, group?, mode?, share?)` — changes group and/or mode. Owner-only (plus bearer-token bypass). `mode` accepts raw strings, `share` accepts preset names.
-
-**Namespace permissions:**
-- `ns_permissions_get(namespace)` — returns namespace owner, group, mode, preset.
-- `ns_permissions_set(namespace, group?, mode?, share?)` — changes namespace group and/or mode. Namespace-owner-only (plus bearer-token bypass).
 
 ## Annotations
 
@@ -150,7 +138,7 @@ for the full annotation schema and create-vs-update stamping behavior.
 - **Update path**: ownership preserved, only provenance/audit annotations updated. Owner-only can change group/mode via `--group`/`--share` flags on redeploy.
 - **Bearer-token**: bypasses all authz checks, owner fields left empty
 - **Unowned resources denied**: resources without `owner-sub` annotation are denied to OIDC callers. Use bearer-token to adopt unowned resources.
-- **Group membership**: evaluated live from JWT claims at request time, never stored as annotations
+- **Member membership**: evaluated live from the enclave annotation at request time, never from JWT group claims
 - **Annotation migration**: `tentacular.dev/*` annotations are read with fallback but all writes use `tentacular.io/*`
 
 ## Kubernetes Administrator Guide
@@ -172,21 +160,19 @@ Resources without `tentacular.io/owner-sub` are denied to OIDC callers.
 To stamp ownership on unowned resources:
 
 ```bash
-# Stamp ownership on a namespace
-kubectl annotate ns tent-dev \
+# Stamp ownership on an enclave namespace
+kubectl annotate ns team-prod \
   tentacular.io/owner-sub=<user-uuid> \
   tentacular.io/owner-email=user@example.com \
   tentacular.io/owner-name="User Name" \
-  tentacular.io/group=platform-team \
-  tentacular.io/mode=rwxr-x---
+  tentacular.io/mode=rwxrwx---
 
 # Stamp ownership on a tentacle deployment
-kubectl annotate deploy -n tent-dev my-tentacle \
+kubectl annotate deploy -n team-prod my-tentacle \
   tentacular.io/owner-sub=<user-uuid> \
   tentacular.io/owner-email=user@example.com \
   tentacular.io/owner-name="User Name" \
-  tentacular.io/group=platform-team \
-  tentacular.io/mode=rwxr-x---
+  tentacular.io/mode=rwxrwx---
 ```
 
 Find user UUIDs via `tntc whoami` (Subject field) or the Keycloak admin console.
@@ -196,7 +182,7 @@ Find user UUIDs via `tntc whoami` (Subject field) or the Keycloak admin console.
 No `chown` command exists yet. Transfer ownership via kubectl:
 
 ```bash
-kubectl annotate deploy -n tent-dev my-tentacle \
+kubectl annotate deploy -n team-prod my-tentacle \
   tentacular.io/owner-sub=<new-user-uuid> \
   tentacular.io/owner-email=new-user@example.com \
   tentacular.io/owner-name="New User" \
@@ -206,13 +192,12 @@ kubectl annotate deploy -n tent-dev my-tentacle \
 ### Auditing Permissions
 
 ```bash
-# List all tentacle permissions in a namespace
-kubectl get deploy -n tent-dev -o custom-columns=\
+# List all tentacle permissions in an enclave
+kubectl get deploy -n team-prod -o custom-columns=\
   NAME:.metadata.name,\
   OWNER:.metadata.annotations.tentacular\.io/owner-email,\
-  GROUP:.metadata.annotations.tentacular\.io/group,\
   MODE:.metadata.annotations.tentacular\.io/mode
 
-# Check namespace permissions
-kubectl get ns tent-dev -o jsonpath='{.metadata.annotations}' | jq
+# Check enclave permissions
+kubectl get ns team-prod -o jsonpath='{.metadata.annotations}' | jq
 ```
