@@ -124,11 +124,11 @@ Only after all 5 gates pass:
 tntc build --push
 tntc deploy --env <target>
 
-# Optional: set group at deploy time
-tntc deploy --env <target> --group <group-name>
+# Optional: deploy to a specific enclave
+tntc deploy --env <target> --enclave <enclave-name>
 
-# Optional: make workflow group-readable (mode 0750)
-tntc deploy --env <target> --share
+# Optional: set permission mode at deploy time
+tntc deploy --env <target> --mode member-read
 ```
 
 ### Post-deploy verification

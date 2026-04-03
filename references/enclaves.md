@@ -55,16 +55,26 @@ the requester is the channel owner.
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `name` | string | yes | DNS-1123 slug (slugified from channel name) |
+| `name` | string | yes | DNS-1123 slug (defaults to slugified channel name -- see Naming below) |
 | `owner_email` | string | yes | OIDC email of the channel owner |
-| `owner_sub` | string | yes | OIDC subject (sub claim) of the owner |
-| `platform` | string | yes | `"slack"` (only supported value currently) |
-| `channel_id` | string | yes | Platform-specific channel ID |
-| `channel_name` | string | yes | Human-readable channel name |
+| `owner_sub` | string | no | OIDC subject (sub claim) of the owner |
+| `platform` | string | no | `"slack"` (default; discord/teams: future) |
+| `channel_id` | string | no | Platform-specific channel ID |
+| `channel_name` | string | no | Human-readable channel name |
 | `members` | array of strings | no | Initial member OIDC emails |
 | `quota_preset` | string | no | `small`, `medium` (default), or `large` |
+| `default_mode` | string | no | Default permission mode for new tentacles (9-char rwx string, e.g. `rwxrwx---`) |
 
-Returns: enclave info object (same shape as `enclave_info`).
+Returns: `{ name, status, quota_preset, owner, members, resources_created }`.
+
+**Naming:** The enclave name defaults to the slugified Slack channel name
+(e.g., `#marketing-ops` becomes `marketing-ops`). The Kraken should confirm
+this with the channel owner rather than asking them to choose a name. The
+name is immutable after creation -- channel renames update `channel_name` but
+not the enclave slug.
+
+**Rate limit:** A single owner can create at most 10 enclaves
+(`MaxEnclavesPerOwner`). Provision will fail if the limit is reached.
 
 Quota presets:
 
@@ -204,13 +214,19 @@ Step 6 uses `tentacular.io/enclave-members` annotation, not IdP group claims.
 
 ### Create an enclave for your team
 
-The Kraken handles this end-to-end. Tell it: "Set up this channel for our
-team." It will:
-1. Verify you are the Slack channel owner
-2. Ask two sizing questions (data volume, number of automations)
-3. Call `enclave_provision` with the appropriate quota preset
-4. Walk current channel members through OIDC sign-in
-5. Confirm when the enclave is ready
+The Kraken handles this end-to-end. A user in the Slack channel says "Set up
+this channel for our team." The Kraken will:
+1. Verify the requester is the Slack channel owner
+2. Propose the enclave name (slugified channel name) and ask for confirmation
+3. Ask two sizing questions (data volume, number of automations) to pick a quota preset
+4. Call `enclave_provision` with the channel name slug, owner identity, and quota preset
+5. Walk current channel members through OIDC sign-in via `enclave_sync`
+6. Confirm when the enclave is ready
+
+**Important:** Enclave membership is managed through the Slack channel, NOT
+through IdP groups. When a user joins the Slack channel and completes OIDC
+sign-in, The Kraken adds them as an enclave member via `enclave_sync`. IdP
+groups (Keycloak) are used for identity only, not for authorization.
 
 ### Add a member to an enclave
 
@@ -221,9 +237,10 @@ after verifying the member has completed OIDC authentication.
 
 ### Transfer tentacle ownership
 
-Only the enclave owner can do this. Use `enclave_sync` once `enclave_chown`
-is available, or use the bearer-token kubectl path as a break-glass measure.
-The Kraken exposes this via: "Transfer [tentacle] to [user]."
+Only the enclave owner can transfer ownership. Use `enclave_sync` with
+`new_owner` to transfer the enclave itself. For individual tentacle ownership,
+use kubectl annotation patching as a break-glass measure (see
+`references/authorization.md` Kubernetes Administrator Guide).
 
 ### Freeze an enclave
 
@@ -235,6 +252,8 @@ happens automatically when a Slack channel is archived.
 
 | Mistake | What Happens | Fix |
 |---------|--------------|-----|
+| Mapping channel members to IdP groups | Enclave membership comes from Slack channel membership, NOT IdP groups. Keycloak is identity-only. | Use `enclave_sync` with `add_members`/`remove_members` to manage membership. The Kraken syncs Slack channel membership automatically. |
+| Asking the user to name the enclave | Creates naming divergence between channel and enclave | Default to the slugified Slack channel name, confirm with user |
 | Checking enclave membership via Keycloak groups | Groups are no longer the authority — Keycloak is identity-only | Check `enclave-members` annotation via `enclave_info` |
 | Assuming the namespace name matches the channel display name | Channel rename updates the display name but not the namespace slug | Use `enclave_info` to get the current `name` slug |
 | Operating on a frozen enclave | `wf_apply` rejected, cron paused | Call `enclave_sync` with `status: "active"` to unfreeze |
@@ -255,6 +274,8 @@ tentacular.io/enclave-channel-name  # current display name
 tentacular.io/enclave-status        # "active" | "frozen"
 tentacular.io/enclave-created-at    # RFC3339 timestamp
 tentacular.io/enclave-updated-at    # RFC3339 timestamp
+tentacular.io/mode                  # enclave permission mode (e.g. "rwxrwx---")
+tentacular.io/enclave-default-mode  # default mode for new tentacles in this enclave
 ```
 
 Tentacles within an enclave retain their own `tentacular.io/owner`,

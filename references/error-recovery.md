@@ -71,8 +71,8 @@ regenerate the NetworkPolicy.
 
 Symptom: `unknown RuntimeClass "gvisor"` error during pod scheduling.
 
-Diagnosis: Run `gvisor_check` to verify whether the gVisor RuntimeClass is
-installed in the cluster.
+Diagnosis: Run `cluster_profile` to verify whether a gVisor RuntimeClass is
+available in the cluster.
 
 Fix:
 - Install gVisor (see cluster prerequisites in `phases/01-install.md`), or

@@ -120,7 +120,6 @@ permission model.
 | `audit_rbac` | Audit RBAC findings |
 | `audit_netpol` | Audit network policies |
 | `audit_psa` | Audit Pod Security Admission |
-| `gvisor_check` | Check gVisor availability |
 | `proxy_status` | Module proxy readiness |
 
 ### Write Tools (create or modify resources)
@@ -132,8 +131,6 @@ permission model.
 | `wf_apply` | Apply K8s manifests as a named deployment |
 | `wf_run` | Trigger a workflow execution |
 | `wf_restart` | Rollout restart a deployment |
-| `gvisor_annotate_ns` | Annotate an enclave namespace with gVisor runtime class |
-| `gvisor_verify` | Verify gVisor sandboxing with an ephemeral test pod (net-zero) |
 
 ### Destructive Tools (data loss possible -- confirm with user)
 
@@ -332,9 +329,9 @@ Read `references/architecture.md` when:
 
 ## MCP Tools
 
-33 tools organized into 11 groups: enclave management, workflow lifecycle,
-execution, discovery, observability, health, cluster ops, audit, exoskeleton,
-gVisor, and module proxy. Use the safety classification table above for risk
+27 tools organized into 10 groups: enclave management, workflow lifecycle,
+execution, discovery, observability, health, cluster ops, cluster health,
+audit, and module proxy. Use the safety classification table above for risk
 assessment and `tools/list` for parameter schemas.
 
 Read `references/mcp-tools.md` when:
@@ -395,7 +392,7 @@ MCP layer. Enclaves are directories; tentacles are files. "Group" means
 enclave member — resolved from the enclave membership list, not IdP groups.
 
 Read `references/authorization.md` when:
-- Deploying with `--group` or `--share` flags
+- Deploying with `--mode` or `--enclave` flags
 - Troubleshooting access denied errors
 - Understanding the CheckEnclave evaluator path and permission presets
 

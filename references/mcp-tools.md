@@ -4,7 +4,7 @@ For parameter schemas, use MCP `tools/list` at runtime. This file covers
 tool behavior, response semantics, and usage patterns. The SKILL.md safety
 classification table tells you the risk level of each tool.
 
-The tentacular MCP server exposes 33 tools organized into 11 groups. Agents
+The tentacular MCP server exposes 27 tools organized into 10 groups. Agents
 can discover all tools and their full parameter schemas via the MCP
 `tools/list` method -- no `tntc` CLI or `KUBECONFIG` needed.
 
@@ -18,7 +18,7 @@ annotation, or tag annotation. Requires namespace Read to list tentacles
 in a namespace.
 
 Returns an array of workflow entries, each with: `name`, `namespace`,
-`version`, `owner` (from `tentacular.io/owner-email`), `group`, `environment`, `ready`, `age`.
+`version`, `owner` (from `tentacular.io/owner-email`), `mode`, `environment`, `ready`, `age`.
 
 ### wf_describe
 
@@ -27,7 +27,7 @@ metadata annotations, replica status, node list, trigger configuration,
 and authorization info.
 
 Returns: `name`, `namespace`, `version`, `owner` (from
-`tentacular.io/owner-email`), `group`, `tags`, `environment`, `mode`,
+`tentacular.io/owner-email`), `tags`, `environment`, `mode`,
 `ready`, `replicas`, `ready_replicas`, `image`, `age`, `nodes`,
 `triggers`, `annotations` (all `tentacular.io/*` annotations).
 
@@ -233,25 +233,6 @@ Audit Pod Security Admission labels on a namespace: check enforce/audit/warn
 levels, distinguish privileged from baseline, detect level mismatches, and
 flag non-restricted or missing configuration. All findings include actionable
 remediation suggestions.
-
-## gVisor Runtime Sandbox
-
-### gvisor_check
-
-Check whether a gVisor RuntimeClass is available in the cluster. Read-only.
-No parameters.
-
-### gvisor_annotate_ns
-
-Annotate a managed namespace with the gVisor runtime class annotation.
-Existing pods continue on the old runtime; use `wf_restart` to force new
-pods onto gVisor. Idempotent.
-
-### gvisor_verify
-
-Verify gVisor sandboxing by creating an ephemeral verification pod with the
-gVisor runtime class and checking kernel identity. The pod is created and
-deleted in a single operation (net effect is zero).
 
 ## Module Proxy
 
