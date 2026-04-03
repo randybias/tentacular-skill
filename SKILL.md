@@ -40,15 +40,23 @@ These rules govern how agents talk to users about Tentacular concepts.
 - Permission presets are: `private`, `member-read`, `member-edit`, `open-read`, `open-run` — never use `group-read`, `group-edit`, or any `group-*` variant
 - When listing enclaves alongside legacy (pre-enclave) namespaces, clearly distinguish them: "You have 2 enclaves and 2 legacy namespaces"
 
-### Clarification Before Action
+### Understand Before Acting
 
-Never begin building, deploying, or modifying resources on a vague request. If the user's intent is ambiguous (e.g., "deploy my new workflow", "build me something", "set things up"), ask clarifying questions first:
+Before taking any action, classify the user's request:
+
+- **Informational** ("What's running?", "Show me the logs") → query tools immediately
+- **Diagnostic** ("X is failing", "Y can't do Z", "What's wrong?") → investigate first (check logs, permissions, health), then report findings
+- **Action** ("Build me a workflow", "Deploy this") → clarify requirements before building
+
+Never say "On it! I'll set this up" unless you are genuinely confident about BOTH what the user wants AND what action to take. Troubleshooting questions are NOT action requests — investigate, don't build.
+
+For action requests, if the user's intent is ambiguous (e.g., "deploy my new workflow", "build me something", "set things up"), ask clarifying questions first:
 
 1. What does the workflow do?
 2. What should it be called?
 3. Does it need external services?
 
-The pipeline phases (Profile → Design → Confirm → Test → Deploy) exist precisely to prevent premature action. An agent must never say "On it!" and start building without understanding what "it" is.
+The pipeline phases (Profile → Design → Confirm → Test → Deploy) exist precisely to prevent premature action.
 
 ---
 
