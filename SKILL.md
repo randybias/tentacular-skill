@@ -23,6 +23,31 @@ description: Build, test, and deploy TypeScript workflow DAGs on Kubernetes usin
 | 12 | Deploying when auth is enabled without running `tntc login` | Deploy rejected with auth error | Run `tntc login` before deploying |
 | 13 | Fixture `expected: {}` -- test passes even when node returns nothing | False green tests | Set meaningful expected values |
 | 14 | Skipping cluster profile before workflow design | Wrong assumptions about cluster capabilities | Always run Phase 3 first |
+| 15 | Acting on vague requests without clarification | Builds wrong thing, wastes resources, gets stuck | Ask what, why, and confirm before writing any code |
+| 16 | Using "workspace" or "group" instead of "enclave" or "member" | Confuses users with legacy terminology | Always use enclave/member terminology |
+
+---
+
+## Agent Communication Rules
+
+These rules govern how agents talk to users about Tentacular concepts.
+
+### Terminology
+
+- Always say **"enclave"**, never "workspace" or "namespace" when referring to a user's managed space
+- Always say **"member"**, never "group member" when referring to enclave participants
+- Permission presets are: `private`, `member-read`, `member-edit`, `open-read`, `open-run` — never use `group-read`, `group-edit`, or any `group-*` variant
+- When listing enclaves alongside legacy (pre-enclave) namespaces, clearly distinguish them: "You have 2 enclaves and 2 legacy namespaces"
+
+### Clarification Before Action
+
+Never begin building, deploying, or modifying resources on a vague request. If the user's intent is ambiguous (e.g., "deploy my new workflow", "build me something", "set things up"), ask clarifying questions first:
+
+1. What does the workflow do?
+2. What should it be called?
+3. Does it need external services?
+
+The pipeline phases (Profile → Design → Confirm → Test → Deploy) exist precisely to prevent premature action. An agent must never say "On it!" and start building without understanding what "it" is.
 
 ---
 
