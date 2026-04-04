@@ -20,9 +20,9 @@ Every tentacle exists in three layers simultaneously:
 
 ```
 Git (system of record)
-    active/<enclave>/<tentacle>/workflow.yaml
-    active/<enclave>/<tentacle>/nodes/*.ts
-    active/<enclave>/<tentacle>/CONTEXT.md
+    enclaves/<enclave>/<tentacle>/workflow.yaml
+    enclaves/<enclave>/<tentacle>/nodes/*.ts
+    enclaves/<enclave>/<tentacle>/CONTEXT.md
            │
            ▼
 Disk (working copy)
@@ -43,13 +43,13 @@ complete.
 
 | Artifact | Git Path | Disk Path | K8s Resource |
 |----------|----------|-----------|--------------|
-| Workflow spec | `active/<enclave>/<tentacle>/workflow.yaml` | `~/tentacles/<enclave>/<tentacle>/workflow.yaml` | ConfigMap `<tentacle>-source` |
-| Node code | `active/<enclave>/<tentacle>/nodes/*.ts` | `~/tentacles/<enclave>/<tentacle>/nodes/*.ts` | ConfigMap `<tentacle>-source` |
-| Parameter schema | `active/<enclave>/<tentacle>/params.schema.yaml` | `~/tentacles/<enclave>/<tentacle>/params.schema.yaml` | Not deployed |
-| Design intent | `active/<enclave>/<tentacle>/CONTEXT.md` | `~/tentacles/<enclave>/<tentacle>/CONTEXT.md` | Not deployed |
-| Tentacle metadata | `active/<enclave>/<tentacle>/tentacle.yaml` | (snapshot only) | K8s Deployment annotations |
-| Enclave metadata | `active/<enclave>/enclave.yaml` | (snapshot only) | K8s namespace annotations |
-| User secrets | `active/<enclave>/.secrets/<tentacle>.enc.yaml` | `~/tentacles/<enclave>/<tentacle>/.secrets.yaml` | K8s Secret |
+| Workflow spec | `enclaves/<enclave>/<tentacle>/workflow.yaml` | `~/tentacles/<enclave>/<tentacle>/workflow.yaml` | ConfigMap `<tentacle>-source` |
+| Node code | `enclaves/<enclave>/<tentacle>/nodes/*.ts` | `~/tentacles/<enclave>/<tentacle>/nodes/*.ts` | ConfigMap `<tentacle>-source` |
+| Parameter schema | `enclaves/<enclave>/<tentacle>/params.schema.yaml` | `~/tentacles/<enclave>/<tentacle>/params.schema.yaml` | Not deployed |
+| Design intent | `enclaves/<enclave>/<tentacle>/CONTEXT.md` | `~/tentacles/<enclave>/<tentacle>/CONTEXT.md` | Not deployed |
+| Tentacle metadata | `enclaves/<enclave>/<tentacle>/tentacle.yaml` | (snapshot only) | K8s Deployment annotations |
+| Enclave metadata | `enclaves/<enclave>/enclave.yaml` | (snapshot only) | K8s namespace annotations |
+| User secrets | `enclaves/<enclave>/.secrets/<tentacle>.enc.yaml` | `~/tentacles/<enclave>/<tentacle>/.secrets.yaml` | K8s Secret |
 
 ## Deploy Flow (git-state enabled)
 
@@ -146,7 +146,7 @@ When a tentacle is decommissioned:
 tntc undeploy <tentacle> --enclave <enclave>
 
 # 2. Move in git
-git -C <state-repo> mv active/<enclave>/<tentacle>/ archived/<enclave>/<tentacle>/
+git -C <state-repo> mv enclaves/<enclave>/<tentacle>/ archive/<enclave>/<tentacle>/
 
 # 3. Write ARCHIVE.md
 # (see template below)
@@ -168,7 +168,7 @@ git -C <state-repo> commit -m "archive(<enclave>/<tentacle>): <reason>"
 **Final state:** <brief description of operational state at retirement>
 ```
 
-The git history preserves the full lifecycle — `git log archived/<enclave>/<tentacle>/`
+The git history preserves the full lifecycle — `git log archive/<enclave>/<tentacle>/`
 shows every commit from initial creation to retirement.
 
 ## tntc state Commands
