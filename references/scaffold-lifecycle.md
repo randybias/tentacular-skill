@@ -56,10 +56,12 @@ default, optionally contributed to public quickstarts).
 ## Workspace Layout
 
 ```
-~/tentacles/                            # ALL tentacles live here (flat)
-+-- acme-uptime/                        #   a tentacle
-+-- regional-monitor/                   #   a tentacle
-+-- api-latency-reporter/               #   a tentacle
+~/tentacles/                            # ALL tentacles, organized by enclave
++-- competitor-pricing/                 #   enclave directory
+|   +-- price-monitor/                  #     a tentacle
+|   +-- alert-dispatcher/              #     a tentacle
++-- infra-alerts/                       #   another enclave
+    +-- node-health/                    #     a tentacle
 
 ~/.tentacular/                          # SYSTEM directory
 +-- config.yaml                         #   CLI configuration
@@ -78,7 +80,10 @@ default, optionally contributed to public quickstarts).
 ```
 
 Key rules:
-- `~/tentacles/` is flat. Every directory is a tentacle, no exceptions.
+- `~/tentacles/` is organized by enclave. The first level is always an
+  enclave directory; tentacles live one level below: `~/tentacles/<enclave>/<tentacle>/`.
+- Use `tntc scaffold init <scaffold> <name> --enclave <enclave-name>` to place a
+  new tentacle in the correct enclave directory automatically.
 - Private scaffolds (`~/.tentacular/scaffolds/`) are searched first.
 - Public quickstarts (`~/.tentacular/quickstarts/`) are a local cache of the
   `tentacular-scaffolds` repo, refreshed by `tntc scaffold sync`.

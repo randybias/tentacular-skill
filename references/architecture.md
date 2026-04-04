@@ -49,18 +49,22 @@ tentacular repository. The repo contains only the tool (CLI + engine) and
 example workflows. Real workflows with secrets, credentials, and
 production-specific configuration belong in a separate local directory.
 
-Canonical location: `~/workspace/tentacles/`
+Canonical location: `~/tentacles/<enclave-name>/`
 
 ```
-~/workspace/tentacles/
-  ai-news-roundup/
-    workflow.yaml
-    .secrets.yaml        # NEVER committed to any repo
-    .secrets.yaml.example
-    nodes/
-    tests/
-  uptime-prober/
-    ...
+~/tentacles/
+  competitor-pricing/          # enclave directory
+    price-monitor/             # a tentacle
+      workflow.yaml
+      .secrets.yaml            # NEVER committed to any repo
+      .secrets.yaml.example
+      nodes/
+      tests/
+    alert-dispatcher/          # another tentacle in same enclave
+      ...
+  infra-alerts/                # another enclave
+    node-health/
+      ...
 ```
 
 Why separate:

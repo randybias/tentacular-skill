@@ -26,6 +26,8 @@ description: Build, test, and deploy TypeScript workflow DAGs on Kubernetes usin
 | 15 | Acting on vague requests without clarification | Builds wrong thing, wastes resources, gets stuck | Ask what, why, and confirm before writing any code |
 | 16 | Using "workspace" or "group" instead of "enclave" or "member" | Confuses users with legacy terminology | Always use enclave/member terminology |
 | 17 | Using `tentacular-engine:latest` instead of a versioned tag | Image may not exist or be stale, causing ImagePullBackOff | Always use the release version tag (e.g., `v0.8.0-rc.1`) matching the tntc CLI version |
+| 18 | Operating on the wrong enclave because user mentioned it by display name | Wrong tentacles modified or deployed | Always resolve `enclave_name` from `channel_id` via `enclave_info`; never infer from user text |
+| 19 | Deploying without committing when git-state is enabled | Deploy gate blocks with "dirty working tree" error | Write/update `CONTEXT.md`, run `tntc state commit "<message>"` before `tntc deploy` |
 
 ---
 
@@ -248,9 +250,9 @@ proceeding.
 
 ### Step 1: Answer these questions with the user
 
-1. **Where does it live?** `~/tentacles/<name>/`
+1. **Where does it live?** `~/tentacles/<enclave-name>/<name>/`
    Create with `tntc init <name>` (from scratch) or
-   `tntc scaffold init <scaffold> <name>` (from a scaffold).
+   `tntc scaffold init <scaffold> <name> --enclave <enclave-name>` (from a scaffold).
 
 2. **What triggers it?** manual | cron | queue
    (See `references/workflow-spec.md` for trigger details.)
@@ -419,6 +421,30 @@ Read `references/enclaves.md` when:
 - Choosing a quota preset (small / medium / large)
 - Troubleshooting access denied errors in an enclave context
 
+## Enclave Isolation
+
+Every Slack channel message scopes ALL operations to that channel's enclave.
+The agent never asks "which enclave?" — it resolves the enclave from
+`channel_id` and passes `enclave_name` to every tool call. Cross-enclave
+operations are only allowed in DMs.
+
+Read `references/enclave-isolation.md` when:
+- Operating as The Kraken (every message is channel-scoped)
+- A tentacle name is ambiguous across multiple enclaves
+- Scoping tentacle disk paths (`~/tentacles/<enclave-name>/<name>/`)
+
+## Git-Backed State
+
+When IT provides a git URL and credentials, git becomes the system of record
+for tentacle source, metadata, and optionally encrypted secrets. Agents commit
+before deploying — the deploy gate refuses a dirty working tree.
+
+Read `references/git-state.md` when:
+- Git-state is enabled (`tntc state status` shows a configured repo)
+- Preparing to deploy (`tntc state commit` required before `tntc deploy`)
+- Archiving or decommissioning a tentacle
+- Writing or updating `CONTEXT.md`
+
 ## Authorization
 
 Tentacles use POSIX-like owner/member/other permissions enforced at the
@@ -498,3 +524,5 @@ Read `references/deployment-ops.md` when:
 | `references/sidecars.md` | Sidecar schema, communication patterns, security model, troubleshooting |
 | `references/sidecar-hooks.md` | Public image HTTP hook pattern, wrapper templates, image compatibility |
 | `references/error-recovery.md` | Error playbooks and triage |
+| `references/enclave-isolation.md` | Channel-scoped rules, cross-enclave DM-only policy, tentacle path scoping, ambiguous context handling |
+| `references/git-state.md` | Three-layer model, deploy flow, CONTEXT.md template, deploy gate, archive flow, tntc state commands |

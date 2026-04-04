@@ -7,7 +7,7 @@
 ### 1. Scaffold in the right place
 
 ```bash
-cd ~/workspace/tentacles
+cd ~/tentacles/<enclave-name>
 tntc init <workflow-name>   # kebab-case required
 cd <workflow-name>
 ```
