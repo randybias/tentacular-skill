@@ -151,25 +151,14 @@ contract:
 
 ## Empty Contract Dependencies
 
-A workflow that uses sidecars but no external services still needs at least
-one contract dependency. The builder derives `--allow-import` (for the module
-proxy) from the contract section -- an empty contract means the engine cannot
-resolve imports and will crash at startup.
+**Fixed in PR #106.** Zero-dependency workflows now work without stub
+dependencies. The builder correctly handles an empty contract section —
+`--allow-import` for the module proxy is derived independently of contract
+dependencies.
 
-If no real dependency exists, declare a health-check stub:
-
-```yaml
-contract:
-  version: "1"
-  dependencies:
-    health-check:
-      protocol: https
-      host: httpbin.org
-      port: 443
-```
-
-This is a known builder limitation. Sidecar-only workflows should not
-require a contract dependency, but currently do.
+Previously, a workflow with no external dependencies required a health-check
+stub to prevent the engine from crashing at startup. This workaround is no
+longer needed.
 
 ## When to Use Managed vs Manual Dependencies
 

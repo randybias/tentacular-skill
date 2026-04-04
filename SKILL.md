@@ -386,6 +386,14 @@ Read `references/node-contract.md` when:
 - Setting up `ctx.dependency()` calls
 - Migrating from legacy `ctx.fetch`/`ctx.secrets`
 
+## Shared Node Modules
+
+Nodes can import TypeScript utilities from other files in the `nodes/` directory.
+
+Read `references/shared-modules.md` when:
+- Writing code shared across multiple nodes (auth patterns, formatters, helpers)
+- Organizing complex node logic into reusable modules
+
 ## Workflow Specification
 
 workflow.yaml defines: name, version, triggers, contract, nodes (with
@@ -523,6 +531,7 @@ Read `references/deployment-ops.md` when:
 | `references/scaffold-lifecycle.md` | Scaffold lifecycle, CLI reference, extraction heuristics |
 | `references/sidecars.md` | Sidecar schema, communication patterns, security model, troubleshooting |
 | `references/sidecar-hooks.md` | Public image HTTP hook pattern, wrapper templates, image compatibility |
+| `references/shared-modules.md` | Shared node modules: reusable .ts files in nodes/ |
 | `references/error-recovery.md` | Error playbooks and triage |
 | `references/enclave-isolation.md` | Channel-scoped rules, cross-enclave DM-only policy, tentacle path scoping, ambiguous context handling |
 | `references/git-state.md` | Three-layer model, deploy flow, CONTEXT.md template, deploy gate, archive flow, tntc state commands |
