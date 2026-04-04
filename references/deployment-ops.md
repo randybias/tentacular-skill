@@ -44,6 +44,31 @@ tntc deploy -o json                 # 5. Deploy (auto-gates on live)
 tntc run <name> -o json             # 6. Post-deploy verification
 ```
 
+### Git-State Deploy Gate
+
+When git-state is enabled, a commit gate runs between step 4 and step 5.
+`tntc deploy` checks that the git working tree is clean for the enclave/tentacle
+path and refuses to proceed if uncommitted changes exist.
+
+Before step 5, run:
+
+```bash
+# Check whether git-state is enabled and the tree is clean
+tntc state status
+
+# If not clean: write or update CONTEXT.md, then commit
+tntc state commit "deploy(<enclave>/<tentacle>): <meaningful message>"
+
+# Verify clean before deploying
+tntc state status --assert-clean
+```
+
+If `tntc state status --assert-clean` exits non-zero, do NOT run `tntc deploy`.
+Stage all changes, verify CONTEXT.md is up-to-date, and commit first.
+
+See `references/git-state.md` for the full three-layer model, commit message
+conventions, and the archive flow.
+
 For step details, deploy gate behavior, structured output format, and the
 pre-build review gate, read the
 [Deploy a Tentacle](https://randybias.github.io/tentacular-docs/cookbook/deploy-tentacle/)
