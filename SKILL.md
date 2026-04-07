@@ -509,6 +509,16 @@ Read `references/deployment-ops.md` when:
 - Configuring environment settings
 - Running dependency preflight checks
 
+## Observability
+
+Tentacles emit OpenTelemetry traces, metrics, and logs automatically when the
+observability stack is deployed. LLM API calls are enriched with token usage.
+
+Read `references/observability.md` when:
+- Deploying workflows that need telemetry validation
+- Investigating missing traces or metrics
+- Working with LLM token usage data
+
 ---
 
 ## References Index
@@ -535,3 +545,4 @@ Read `references/deployment-ops.md` when:
 | `references/error-recovery.md` | Error playbooks and triage |
 | `references/enclave-isolation.md` | Channel-scoped rules, cross-enclave DM-only policy, tentacle path scoping, ambiguous context handling |
 | `references/git-state.md` | Three-layer model, deploy flow, CONTEXT.md template, deploy gate, archive flow, tntc state commands |
+| `references/observability.md` | OTel auto-instrumentation, GenAI telemetry, well-known DNS, enclave scoping, troubleshooting |
