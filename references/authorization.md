@@ -107,8 +107,9 @@ Valid mode presets for `set mode`: `private`, `team` (alias for `member-edit`),
 
 When a member is removed (via `@kraken remove` or `member_left_channel`),
 `enclave_sync` with `remove_members` automatically transfers all tentacles
-owned by the departing member to the enclave owner. The transfer count and
-any failures are reported in the response.
+owned by the departing member to the enclave owner. The response includes a
+`transfers` array with `{tentacle_name, from_owner, to_owner, success, error}`
+entries for each affected tentacle.
 
 ### Drift Detection
 
