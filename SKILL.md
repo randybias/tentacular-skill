@@ -163,7 +163,7 @@ permission model.
 | Tool | Description |
 |------|-------------|
 | `enclave_provision` | Create enclave: namespace + exo + membership + RBAC + quota |
-| `enclave_sync` | Update enclave membership, owner, channel name, or status |
+| `enclave_sync` | Update enclave membership, owner, channel name, status, or permission mode |
 | `wf_apply` | Apply K8s manifests as a named deployment |
 | `wf_run` | Trigger a workflow execution |
 | `wf_restart` | Rollout restart a deployment |
@@ -456,11 +456,13 @@ Read `references/git-state.md` when:
 ## Authorization
 
 Tentacles use POSIX-like owner/member/other permissions enforced at the
-MCP layer. Enclaves are directories; tentacles are files. "Group" means
-enclave member — resolved from the enclave membership list, not IdP groups.
+MCP layer. Enclaves are directories; tentacles are files. Membership is
+resolved from the enclave annotation, not IdP groups.
 
 Read `references/authorization.md` when:
 - Deploying with `--mode` or `--enclave` flags
+- Managing enclave membership lifecycle (join, leave, drift detection)
+- Using Kraken owner commands (`@kraken add/remove/members/whoami/set mode`)
 - Troubleshooting access denied errors
 - Understanding the CheckEnclave evaluator path and permission presets
 
