@@ -2,8 +2,8 @@
 
 POSIX-like owner/member/other permissions for tentacles, enforced at the
 MCP server layer. Enclaves act as directories; tentacles act as files.
-"Group" means enclave member — evaluated from the `tentacular.io/enclave-members`
-annotation, not IdP group claims.
+Membership is evaluated from the `tentacular.io/enclave-members` annotation
+(comma-separated emails), not IdP group claims.
 
 ## Permission Model
 
@@ -73,10 +73,58 @@ Enclaves can specify a default mode for new tentacles via the
 pass an explicit `--mode` flag, this default is used. If unset, new tentacles
 inherit the enclave's own `tentacular.io/mode`.
 
+## Enclave Membership Lifecycle
+
+Membership is driven by Slack channel events and Kraken owner commands.
+The `tentacular.io/enclave-members` annotation stores a comma-separated list
+of OIDC emails. IdP groups are not consulted.
+
+### Channel Event Mapping
+
+| Slack Event | Enclave Effect |
+|-------------|---------------|
+| `member_joined_channel` | User becomes a **visitor** until the owner explicitly adds them |
+| `member_left_channel` | User is removed from members; their tentacles transfer to the enclave owner |
+| `channel_archive` | Enclave status set to **frozen** (no new deploys, cron paused) |
+| `channel_unarchive` | Enclave status set to **active** |
+| `channel_rename` | `channel_name` annotation updated; enclave slug is immutable |
+
+### Kraken Commands
+
+| Command | Who Can Run | Effect |
+|---------|------------|--------|
+| `@kraken add @user` | Owner only | Adds the mentioned user as an enclave member (resolves Slack email to OIDC email) |
+| `@kraken remove @user` | Owner only | Removes the user from enclave members; transfers their tentacles to the enclave owner |
+| `@kraken set mode <preset>` | Owner only | Updates the enclave permission mode via `enclave_sync` `new_mode` parameter |
+| `@kraken members` | Anyone | Lists enclave owner, members, and current access level in plain language |
+| `@kraken whoami` | Anyone | Reports the caller's role: owner, member, or visitor |
+
+Valid mode presets for `set mode`: `private`, `team` (alias for `member-edit`),
+`shared` (alias for `team`), `open-read`, `open-run`. Raw rwx strings
+(e.g., `rwxrwx---`) are also accepted.
+
+### Ownership Transfer on Member Removal
+
+When a member is removed (via `@kraken remove` or `member_left_channel`),
+`enclave_sync` with `remove_members` automatically transfers all tentacles
+owned by the departing member to the enclave owner. The transfer count and
+any failures are reported in the response.
+
+### Drift Detection
+
+The Kraken runs periodic drift detection (default: every 5 minutes) to
+reconcile Slack channel membership with enclave annotations. Drift detection:
+- Removes annotation members who are no longer in the Slack channel
+- Never auto-adds members (channel join alone does not grant membership)
+- Never removes the enclave owner
+- Skips frozen enclaves
+- Processes enclaves in round-robin batches
+
 ## Presets
 
-Used with `enclave_provision` and `enclave_sync`. "Member" is checked against
-`tentacular.io/enclave-members` annotation on the namespace — not IdP claims.
+Used with `enclave_provision`, `enclave_sync`, and `@kraken set mode`.
+"Member" is checked against `tentacular.io/enclave-members` annotation on
+the namespace — not IdP claims.
 
 | Name | Mode | Meaning |
 |------|------|---------|
@@ -125,6 +173,9 @@ tntc enclave provision <name> --owner-email user@example.com
 
 # Update enclave membership or status
 tntc enclave sync <name> --add-members user@example.com
+
+# Update enclave permission mode
+tntc enclave sync <name> --mode rwxrwx---
 ```
 
 ## Annotations
@@ -138,7 +189,9 @@ for the full annotation schema and create-vs-update stamping behavior.
 - **Update path**: ownership preserved, only provenance/audit annotations updated. Owner can change mode via `--mode` flag on redeploy.
 - **Bearer-token**: bypasses all authz checks, owner fields left empty
 - **Unowned resources denied**: resources without `owner-sub` annotation are denied to OIDC callers. Use bearer-token to adopt unowned resources.
-- **Member membership**: evaluated live from the enclave annotation at request time, never from JWT group claims
+- **Member membership**: evaluated live from the `enclave-members` annotation (comma-separated emails) at request time, never from JWT group claims
+- **Ownership transfer**: when a member is removed, their tentacles are automatically transferred to the enclave owner
+- **No group annotation**: `tentacular.io/group` is not written. Authorization uses enclave membership only.
 - **Annotation migration**: `tentacular.dev/*` annotations are read with fallback but all writes use `tentacular.io/*`
 
 ## Kubernetes Administrator Guide

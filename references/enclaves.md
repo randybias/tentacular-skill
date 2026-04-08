@@ -118,14 +118,17 @@ Can also be called by the enclave owner directly.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `name` | string | yes | Enclave name |
-| `add_members` | array of strings | no | OIDC emails to add as members |
-| `remove_members` | array of strings | no | OIDC emails to remove |
+| `add_members` | array of strings | no | OIDC emails to add as members (CSV format) |
+| `remove_members` | array of strings | no | OIDC emails to remove (CSV format) |
 | `new_owner` | string | no | New owner email (must be a current member) |
 | `new_channel_name` | string | no | Updated display name |
 | `new_status` | string | no | `"active"` or `"frozen"` |
+| `new_mode` | string | no | Permission mode (9-char rwx string, e.g. `rwxrwx---`) |
 
-Only the enclave owner (or bearer token) can call this tool. Returns updated
-enclave info object.
+Only the enclave owner (or bearer token) can call this tool. When
+`remove_members` is used, tentacles owned by the removed member are
+automatically transferred to the enclave owner. Returns updated
+enclave info object including transfer count and any failed transfers.
 
 ### enclave_deprovision (Destructive)
 
@@ -243,15 +246,27 @@ separate mapping or IdP group lookup is needed.
 
 ### Add a member to an enclave
 
-When a user joins the Slack channel, The Kraken:
-1. Detects the `member_joined_channel` event
-2. Sends an OIDC auth link via **DM** to the new member (never in the channel)
-3. Posts a notification in the channel: "@user, check your DMs to complete sign-in"
-4. Once the member completes sign-in, calls `enclave_sync` with `add_members`
-   using the verified OIDC email
+Joining a Slack channel does not automatically grant enclave membership.
+The new user is a **visitor** until the enclave owner explicitly adds them.
+
+The owner adds members via:
+- `@kraken add @user` in the channel (Kraken resolves Slack email to OIDC email)
+- `tntc enclave sync <name> --add-member user@example.com` via CLI
 
 As an agent operating directly on MCP tools, call `enclave_sync` with
 `add_members` after verifying the member has completed OIDC authentication.
+
+### Remove a member from an enclave
+
+When a member leaves the Slack channel (`member_left_channel`), The Kraken
+automatically removes them from the enclave via `enclave_sync` with
+`remove_members`. The owner can also remove members explicitly:
+
+- `@kraken remove @user` in the channel
+- `tntc enclave sync <name> --remove-member user@example.com` via CLI
+
+On removal, all tentacles owned by the departing member are transferred
+to the enclave owner. The transfer count is reported in the response.
 
 ### Transfer tentacle ownership
 
