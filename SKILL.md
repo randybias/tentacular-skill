@@ -28,6 +28,7 @@ description: Build, test, and deploy TypeScript workflow DAGs on Kubernetes usin
 | 17 | Using `tentacular-engine:latest` instead of a versioned tag | Image may not exist or be stale, causing ImagePullBackOff | Always use the release version tag (e.g., `v0.8.0-rc.1`) matching the tntc CLI version |
 | 18 | Operating on the wrong enclave because user mentioned it by display name | Wrong tentacles modified or deployed | Always resolve `enclave_name` from `channel_id` via `enclave_info`; never infer from user text |
 | 19 | Deploying without committing when git-state is enabled | Deploy gate blocks with "dirty working tree" error | Write/update `CONTEXT.md`, run `tntc state commit "<message>"` before `tntc deploy` |
+| 20 | Writing an LLM node without authoring prompts.yaml or reviewing the prompt with the user | Prompts ship without user approval, quality issues not caught | Author prompts.yaml entry, show full prompt text to user, wait for approval |
 
 ---
 
@@ -499,6 +500,18 @@ Read `references/sidecar-hooks.md` when:
 - Choosing a scripting runtime (Python3, Perl, bash) for the wrapper
 - Checking image compatibility before deploying a sidecar
 
+## Prompt Metadata
+
+LLM-calling nodes declare their prompts in `prompts.yaml` — a file alongside
+`workflow.yaml` that captures system prompts, user prompt templates, model
+choices, tools, and output templates. This metadata is stored at deploy time
+and surfaced via `wf_describe`.
+
+Read `references/prompt-metadata.md` when:
+- Writing an LLM node (prompts.yaml entry is mandatory, user review required)
+- Viewing or editing deployed prompts via Kraken (`show prompt`, `show template`)
+- Understanding the prompts.yaml schema and iteration flow
+
 ## Deployment and Operations
 
 Deployment flow: validate -> visualize -> test -> live test -> deploy ->
@@ -547,4 +560,5 @@ Read `references/observability.md` when:
 | `references/error-recovery.md` | Error playbooks and triage |
 | `references/enclave-isolation.md` | Channel-scoped rules, cross-enclave DM-only policy, tentacle path scoping, ambiguous context handling |
 | `references/git-state.md` | Three-layer model, deploy flow, CONTEXT.md template, deploy gate, archive flow, tntc state commands |
+| `references/prompt-metadata.md` | prompts.yaml schema, user review protocol, metadata pipeline, Kraken commands |
 | `references/observability.md` | OTel auto-instrumentation, GenAI telemetry, well-known DNS, enclave scoping, troubleshooting |

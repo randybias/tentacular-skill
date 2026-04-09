@@ -160,6 +160,62 @@ ctx.log.info("message");
 
 For full Context API: [Node Contract](https://randybias.github.io/tentacular-docs/reference/node-contract/).
 
+#### Step 3.5: Author and review prompts.yaml for LLM nodes
+
+**This step applies to every node that calls an LLM API** (Anthropic, OpenAI,
+or any model provider via `ctx.dependency()`). Skip it for non-LLM nodes.
+
+After writing the node code, immediately create or update `prompts.yaml` in
+the tentacle root directory with an entry for this node:
+
+```yaml
+version: "1"
+
+prompts:
+  - node: analyze-data           # matches the node filename without .ts
+    name: data-analysis-prompt   # stable kebab-case identifier
+    description: "What this prompt does in one sentence"
+    model: claude-sonnet-4-5     # the model this node targets
+    system_prompt: |
+      <exact system prompt text from the node code>
+    user_prompt_template: |
+      <user message template — use {{input.field}} for dynamic parts>
+    tools:                       # only if the node uses tool_use
+      - name: tool-name
+        description: "What this tool does"
+```
+
+If the node produces formatted output (Slack messages, HTML reports, emails),
+also add a `templates:` entry:
+
+```yaml
+templates:
+  - node: send-report
+    name: weekly-report-template
+    description: "What this template produces"
+    format: markdown             # or slack-blocks, html, text
+    template: |
+      <output template text>
+```
+
+**After writing the entry, present the full prompt text to the user.**
+
+> "Here's the system prompt I wrote for the `analyze-data` node. This is what
+> the LLM will see every time this workflow runs. Want to adjust the tone,
+> add constraints, or change anything?"
+
+Show the complete system prompt and user prompt template in code blocks.
+Include the model name and any tools. Wait for the user to confirm or
+request changes before proceeding to Step 4.
+
+**This review is mandatory, not optional.** Prompts are the most
+business-critical part of an LLM workflow — they determine output quality.
+The user must see and approve every prompt before the tentacle is tested.
+
+If the user suggests changes, update both the node code AND prompts.yaml
+to stay in sync. prompts.yaml is declarative metadata today (the node code
+is the runtime source of truth), but they must match.
+
 #### Step 4: Run the test — verify it passes AND output is correct
 
 ```bash
