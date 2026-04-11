@@ -1,6 +1,6 @@
 ---
 name: tentacular
-description: Build, test, and deploy TypeScript workflow DAGs on Kubernetes using the tntc CLI. Use when creating new agentic workflows, deploying or managing existing workflows, writing or debugging workflow nodes, running tests, checking workflow status, viewing logs, or working with Tentacular secrets and contracts. Covers the full lifecycle: scaffold -> validate -> test -> build -> deploy -> run -> monitor.
+description: "Build, test, and deploy TypeScript workflow DAGs on Kubernetes using the tntc CLI. Use when creating new agentic workflows, deploying or managing existing workflows, writing or debugging workflow nodes, running tests, checking workflow status, viewing logs, or working with Tentacular secrets and contracts. Covers the full lifecycle: scaffold -> validate -> test -> build -> deploy -> run -> monitor."
 ---
 
 # Tentacular
@@ -29,6 +29,7 @@ description: Build, test, and deploy TypeScript workflow DAGs on Kubernetes usin
 | 18 | Operating on the wrong enclave because user mentioned it by display name | Wrong tentacles modified or deployed | Always resolve `enclave_name` from `channel_id` via `enclave_info`; never infer from user text |
 | 19 | Deploying without committing when git-state is enabled | Deploy gate blocks with "dirty working tree" error | Write/update `CONTEXT.md`, run `tntc state commit "<message>"` before `tntc deploy` |
 | 20 | Writing an LLM node without authoring prompts.yaml or reviewing the prompt with the user | Prompts ship without user approval, quality issues not caught | Author prompts.yaml entry, show full prompt text to user, wait for approval |
+| 21 | Defining a node without a `description:` field | `tntc validate` and `wf_apply` both reject the workflow | Every node must have `description: "..."` explaining what it does |
 
 ---
 
@@ -398,8 +399,8 @@ Read `references/shared-modules.md` when:
 ## Workflow Specification
 
 workflow.yaml defines: name, version, triggers, contract, nodes (with
-`path:` not `source:`), edges (top-level list), and config. The config block
-is open -- custom keys flow to `ctx.config`.
+`path:` and mandatory `description:`), edges (top-level list), and config.
+The config block is open -- custom keys flow to `ctx.config`.
 
 Read `references/workflow-spec.md` when:
 - Writing or editing workflow.yaml

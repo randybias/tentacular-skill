@@ -14,12 +14,15 @@ All top-level fields:
 | `metadata` | No | Discovery metadata: `owner`, `team`, `environment`, `tags` |
 | `triggers` | Yes | List of trigger definitions (at least one) |
 | `contract` | Yes | Dependency contract (version + dependencies map) |
-| `nodes` | Yes | Map of node names to node definitions (each with `path:`) |
+| `nodes` | Yes | Map of node names to node definitions (each with `path:` and `description:`) |
 | `edges` | Yes | Top-level list of `{from: node, to: node}` pairs |
 | `config` | No | Open config block: `timeout`, `retries`, and any custom keys |
 
 Critical schema rules:
 - Nodes use `path:` (not `source:`). `source:` is rejected at validate time.
+- Nodes require `description:` — a human-readable string explaining what the
+  node does. Missing descriptions are rejected by both `tntc validate` and
+  the MCP server's `wf_apply`.
 - Edges are a separate top-level `edges:` list. Do not use `depends_on:`
   inside node blocks -- it is not a recognized field and is silently ignored.
 
@@ -45,6 +48,7 @@ contract:
 nodes:
   hello:
     path: ./nodes/hello.ts
+    description: "Prints a greeting message"
 
 edges: []
 
