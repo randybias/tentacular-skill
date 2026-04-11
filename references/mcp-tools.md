@@ -29,10 +29,14 @@ and authorization info.
 Returns: `name`, `namespace`, `version`, `owner` (from
 `tentacular.io/owner-email`), `tags`, `environment`, `mode`,
 `ready`, `replicas`, `ready_replicas`, `image`, `age`, `nodes`,
-`triggers`, `annotations` (all `tentacular.io/*` annotations).
+`node_descriptions`, `triggers`, `annotations` (all `tentacular.io/*`
+annotations).
 
 Node names and trigger descriptions are enriched from the workflow ConfigMap
-(`<name>-code`) when available.
+(`<name>-code`) when available. `node_descriptions` is an array of
+`{name, description}` objects read from the `node_descriptions` key in the
+metadata ConfigMap. For workflows deployed before the description requirement,
+this array is empty.
 
 ## Workflow Execution
 

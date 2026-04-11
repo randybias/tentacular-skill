@@ -25,8 +25,10 @@ but the wrong pattern is easy to write from memory:
 nodes:
   fetch-data:
     path: ./nodes/fetch-data.ts
+    description: "Fetches raw data from the configured API"
   transform:
     path: ./nodes/transform.ts
+    description: "Transforms raw data into the output format"
 
 edges:
   - from: fetch-data
