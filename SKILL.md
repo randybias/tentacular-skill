@@ -141,7 +141,7 @@ permission model.
 | `wf_status` | Get resource status for a deployment |
 | `wf_pods` | List pods in an enclave |
 | `wf_logs` | Get pod logs |
-| `wf_events` | List namespace events |
+| `wf_events` | List enclave events |
 | `wf_jobs` | List Jobs and CronJobs |
 | `wf_health` | Single workflow G/A/R health |
 | `wf_health_enclave` | Enclave-wide G/A/R health |
