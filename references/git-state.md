@@ -60,7 +60,7 @@ between validation and deployment:
 1. tntc validate                         # validate spec + contract
 2. tntc visualize --rich --write         # persist contract artifacts
 3. tntc test -o json                     # mock tests
-4. tntc test --live --env <target>       # live tests
+4. tntc test --live --cluster <target>   # live tests
    --- git-state gate ---
 5. Write CONTEXT.md (if new or changed)
 6. tntc state commit "deploy(<enclave>/<tentacle>): <message>"

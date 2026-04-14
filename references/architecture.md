@@ -95,10 +95,10 @@ commands like `list`, `status`, `logs`, `run`, and `undeploy` work without
 `KUBECONFIG` or direct Kubernetes access:
 
 ```bash
-tntc list -n <namespace>
-tntc status <workflow-name> -n <namespace>
-tntc logs <workflow-name> -n <namespace>
-tntc run <workflow-name> -n <namespace>
+tntc list -n <enclave>
+tntc status <workflow-name> -n <enclave>
+tntc logs <workflow-name> -n <enclave>
+tntc run <workflow-name> -n <enclave>
 ```
 
 The MCP endpoint and token are configured in `~/.tentacular/config.yaml`
@@ -119,16 +119,16 @@ Tentacular uses three categories of namespaces:
 
 ## MCP Configuration
 
-MCP connection is configured per-environment or globally:
+MCP connection is configured per-cluster or globally:
 
 ```yaml
 # ~/.tentacular/config.yaml
-default_env: dev
+default_cluster: dev
 
 mcp:
   endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
 
-environments:
+clusters:
   dev:
     namespace: tentacular-dev
     mcp_endpoint: http://localhost:8080
@@ -142,8 +142,8 @@ environments:
 ```
 
 MCP resolution cascade:
-1. Active environment's `mcp_endpoint` + OIDC token
-   (`--env` > `TENTACULAR_ENV` > `default_env`)
+1. Active cluster's `mcp_endpoint` + OIDC token
+   (`--cluster` > `TENTACULAR_CLUSTER` > `default_cluster`)
 2. Global `mcp.endpoint`
 3. `TNTC_MCP_ENDPOINT` env var
-4. OIDC token from `~/.tentacular/tokens/{env}.json` (via `tntc login`)
+4. OIDC token from `~/.tentacular/tokens/{cluster}.json` (via `tntc login`)

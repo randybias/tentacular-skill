@@ -53,7 +53,7 @@ bypasses the tentacle check entirely (superuser).
 
 | Bit | Enclave Operations |
 |-----|-------------------|
-| Read (`r`) | `wf_list`, `wf_health_ns`, `wf_pods`, `wf_logs`, `wf_events`, `wf_jobs` (when no tentacle name is specified) |
+| Read (`r`) | `wf_list`, `wf_health_enclave`, `wf_pods`, `wf_logs`, `wf_events`, `wf_jobs` (when no tentacle name is specified) |
 | Write (`w`) | `wf_apply` (create a new tentacle in the enclave) |
 | Execute (`x`) | Reserved for future use |
 

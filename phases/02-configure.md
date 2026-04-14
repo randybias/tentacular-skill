@@ -1,6 +1,6 @@
-# Phase 02: Configure Environments
+# Phase 02: Configure Clusters
 
-**Gate: at least one environment must be defined before any workflow work.**
+**Gate: at least one cluster must be defined before any workflow work.**
 
 ## Check
 
@@ -8,7 +8,7 @@
 cat ~/.tentacular/config.yaml 2>/dev/null || cat .tentacular/config.yaml 2>/dev/null
 ```
 
-If the file exists and contains at least one entry under `environments:`, you are done
+If the file exists and contains at least one entry under `clusters:`, you are done
 with this phase. Proceed to `phases/03-profile.md`.
 
 ## Create or Update Config
@@ -25,13 +25,13 @@ tntc configure --registry <registry-url>   # e.g. ghcr.io/username
 registry: ghcr.io/your-org
 namespace: default
 runtime_class: gvisor
-default_env: dev
+default_cluster: dev
 
 mcp:
   endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
   token_path: ~/.tentacular/mcp-token
 
-environments:
+clusters:
   dev:
     namespace: tentacular-dev
     runtime_class: ""            # no gVisor for kind
@@ -64,14 +64,14 @@ generate the profile manually.
 Before leaving this phase, confirm:
 
 - [ ] Config file exists (`~/.tentacular/config.yaml` or `.tentacular/config.yaml`)
-- [ ] At least one environment is defined under `environments:`
-- [ ] `tntc cluster check` passes for the target environment
+- [ ] At least one cluster is defined under `clusters:`
+- [ ] `tntc cluster check` passes for the target cluster
 
 `tntc cluster check` routes through the MCP server. Ensure the
 MCP endpoint is configured for your target environment, then run:
 
 ```bash
-tntc cluster check -n <namespace>
+tntc cluster check -n <enclave>
 ```
 
 | cluster check result | Action |
