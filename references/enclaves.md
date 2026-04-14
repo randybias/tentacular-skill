@@ -99,9 +99,8 @@ Returns: `name`, `owner`, `owner_sub`, `members` (array),
 
 ### enclave_list (Read-only)
 
-Lists enclaves the caller has read access to. With OIDC auth, returns only
-enclaves where the caller is owner or member (or has other-read permission).
-With bearer token, returns all enclaves.
+Lists enclaves the caller has read access to. Returns only enclaves where
+the caller is owner or member (or has other-read permission).
 
 No required parameters. Optional: `caller_email` filter (set automatically for
 OIDC callers).
@@ -125,7 +124,7 @@ Can also be called by the enclave owner directly.
 | `new_status` | string | no | `"active"` or `"frozen"` |
 | `new_mode` | string | no | Permission mode (9-char rwx string, e.g. `rwxrwx---`) |
 
-Only the enclave owner (or bearer token) can call this tool. When
+Only the enclave owner can call this tool. When
 `remove_members` is used, tentacles owned by the removed member are
 automatically transferred to the enclave owner. Returns updated
 enclave info object including transfer count and any failed transfers.
@@ -140,7 +139,7 @@ This is permanent and cannot be undone.
 |-----------|------|----------|-------------|
 | `name` | string | yes | Enclave name |
 
-Only the enclave owner (or bearer token) can call this tool. Confirmation is
+Only the enclave owner can call this tool. Confirmation is
 handled CLI-side (--confirm flag), not as a tool parameter.
 
 Always confirm with the user before calling. Returns `{ name, deleted, tentacles_removed }`.
@@ -190,12 +189,11 @@ Exception: the enclave owner bypasses the tentacle check entirely (superuser).
 
 ```
 1. Evaluator disabled? → Allow
-2. Bearer-token caller? → Allow (platform operators only)
-3. No enclave annotation? → Deny (unmanaged resource)
-4. Caller is enclave owner? → Allow (superuser — bypasses tentacle check)
-5. Caller is tentacle owner? → Check owner bits (positions 0-2)
-6. Caller in enclave-members? → Check member bits (positions 3-5)
-7. Otherwise → Check other bits (positions 6-8)
+2. No enclave annotation? → Deny (unmanaged resource)
+3. Caller is enclave owner? → Allow (superuser — bypasses tentacle check)
+4. Caller is tentacle owner? → Check owner bits (positions 0-2)
+5. Caller in enclave-members? → Check member bits (positions 3-5)
+6. Otherwise → Check other bits (positions 6-8)
 ```
 
 Step 6 uses `tentacular.io/enclave-members` annotation, not IdP group claims.
@@ -211,7 +209,6 @@ Step 6 uses `tentacular.io/enclave-members` annotation, not IdP group claims.
 | Visitor | `rwxrwxr--` | View status | Allow (other r=yes) |
 | Visitor | `rwxrwxr--` | Deploy tentacle | Deny (other w=no) |
 | Visitor | `rwxrwxr-x` | Trigger a run | Allow (other x=yes) |
-| Platform operator | Any | Anything | Allow (bearer-token bypass) |
 
 ## Common Workflows
 
@@ -292,7 +289,6 @@ happens automatically when a Slack channel is archived.
 | Checking enclave membership via Keycloak groups | Groups are no longer the authority — Keycloak is identity-only | Check `enclave-members` annotation via `enclave_info` |
 | Assuming the namespace name matches the channel display name | Channel rename updates the display name but not the namespace slug | Use `enclave_info` to get the current `name` slug |
 | Operating on a frozen enclave | `wf_apply` rejected, cron paused | Call `enclave_sync` with `status: "active"` to unfreeze |
-| Using bearer token as a regular user | Bypasses authz — resources become unowned | Bearer token is for platform operators only; users must use OIDC |
 
 ## Annotations Reference
 

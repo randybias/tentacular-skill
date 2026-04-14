@@ -154,7 +154,7 @@ Agent promotion rules:
 Named environments (`dev`, `staging`, `production`) extend the config cascade
 with cluster-specific settings. Define them in `~/.tentacular/config.yaml`
 or `.tentacular/config.yaml`. Each environment can specify `namespace`,
-`image`, `runtime_class`, `mcp_endpoint`, `mcp_token_path`,
+`image`, `runtime_class`, `mcp_endpoint`, `oidc_issuer`, `oidc_client_id`,
 `config_overrides`, and `secrets_source`. The `default_env` field sets which
 environment is used when no `--env` flag or `TENTACULAR_ENV` variable is set.
 

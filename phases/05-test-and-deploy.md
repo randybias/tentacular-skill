@@ -181,8 +181,7 @@ tntc permissions chmod member-read <enclave> <workflow-name>
 tntc permissions chgrp <group-name> <enclave> <workflow-name>
 ```
 
-Only the workflow owner can modify permissions. Bearer-token deploys
-bypass authorization entirely.
+Only the workflow owner can modify permissions.
 
 ---
 

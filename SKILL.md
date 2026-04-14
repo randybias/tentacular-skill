@@ -86,14 +86,13 @@ Building or developing? **CLI.** Querying or operating the cluster? **MCP tools.
 
 ## MCP Authentication
 
-The MCP server supports three authentication paths. Auth mode determines
-deployer provenance -- OIDC paths record who deployed; bearer-token does not.
+All MCP access requires OIDC authentication. Every deployer has a verified
+identity (email + subject) from the OIDC provider (Keycloak).
 
-| Auth Mode | Client | Deployer Identity? | Login |
-|-----------|--------|-------------------|-------|
-| CLI OIDC | `tntc` CLI | Yes (email, subject) | `tntc login --env <env>` |
-| Claude Code OAuth | Claude Code (`.mcp.json`) | Yes (email, subject) | Browser popup (automatic) |
-| Bearer-token | Any HTTP client | No -- anonymous | Token file, no login |
+| Auth Mode | Client | Login |
+|-----------|--------|-------|
+| CLI OIDC | `tntc` CLI | `tntc login --env <env>` |
+| Claude Code OAuth | Claude Code (`.mcp.json`) | Browser popup (automatic) |
 
 **CLI OIDC flow** (device-code grant):
 
@@ -122,10 +121,6 @@ advertises its authorization server automatically. Configure `.mcp.json`:
 On first connection, Claude Code opens a browser for Keycloak login. The
 resulting JWT carries the same OIDC identity as `tntc login` -- namespaces
 and tentacles created via Claude Code have proper ownership annotations.
-
-**Bearer-token mode** bypasses all authorization checks. Resources created
-via bearer-token have no owner and cannot be managed by OIDC-authenticated
-callers. Use bearer-token only for admin operations.
 
 Skipping login on an OIDC-enabled server causes all MCP tool calls to fail
 with authentication errors. See `references/authorization.md` for the

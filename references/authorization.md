@@ -141,12 +141,11 @@ Called for all enclave namespaces (has `tentacular.io/enclave` annotation).
 
 ```
 1. Evaluator disabled? → Allow
-2. Bearer-token caller? → Allow (platform operators only)
-3. No enclave annotation? → Deny (not an enclave namespace)
-4. Caller is enclave owner? → Allow (superuser — bypasses tentacle check)
-5. Caller is tentacle owner? → check owner bits (positions 0-2)
-6. Caller email in enclave-members? → check member bits (positions 3-5)
-7. Otherwise → check other bits (positions 6-8)
+2. No enclave annotation? → Deny (not an enclave namespace)
+3. Caller is enclave owner? → Allow (superuser — bypasses tentacle check)
+4. Caller is tentacle owner? → check owner bits (positions 0-2)
+5. Caller email in enclave-members? → check member bits (positions 3-5)
+6. Otherwise → check other bits (positions 6-8)
 ```
 
 Step 6 reads `tentacular.io/enclave-members` from the namespace. IdP groups
@@ -188,8 +187,7 @@ for the full annotation schema and create-vs-update stamping behavior.
 
 - **Create path**: deployer becomes owner, annotations stamped from OIDC identity + flags
 - **Update path**: ownership preserved, only provenance/audit annotations updated. Owner can change mode via `--mode` flag on redeploy.
-- **Bearer-token**: bypasses all authz checks, owner fields left empty
-- **Unowned resources denied**: resources without `owner-sub` annotation are denied to OIDC callers. Use bearer-token to adopt unowned resources.
+- **Unowned resources denied**: resources without `owner-sub` annotation are denied to OIDC callers. Use kubectl annotation patching to adopt unowned resources (see Kubernetes Administrator Guide below).
 - **Member membership**: evaluated live from the `enclave-members` annotation (comma-separated emails) at request time, never from JWT group claims
 - **Ownership transfer**: when a member is removed, their tentacles are automatically transferred to the enclave owner
 - **No group annotation**: `tentacular.io/group` is not written. Authorization uses enclave membership only.

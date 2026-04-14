@@ -127,21 +127,23 @@ default_env: dev
 
 mcp:
   endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
-  token_path: ~/.tentacular/mcp-token
 
 environments:
   dev:
     namespace: tentacular-dev
     mcp_endpoint: http://localhost:8080
-    mcp_token_path: ~/.tentacular/mcp-token
+    oidc_issuer: https://keycloak.example.com/realms/tentacular
+    oidc_client_id: tentacular-cli
   prod:
     namespace: tentacular-prod
     mcp_endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
-    mcp_token_path: ~/.tentacular/prod-mcp-token
+    oidc_issuer: https://keycloak.example.com/realms/tentacular
+    oidc_client_id: tentacular-cli
 ```
 
 MCP resolution cascade:
-1. Active environment's `mcp_endpoint` / `mcp_token_path`
+1. Active environment's `mcp_endpoint` + OIDC token
    (`--env` > `TENTACULAR_ENV` > `default_env`)
-2. Global `mcp.endpoint` / `mcp.token_path`
-3. `TNTC_MCP_ENDPOINT` / `TNTC_MCP_TOKEN` env vars
+2. Global `mcp.endpoint`
+3. `TNTC_MCP_ENDPOINT` env var
+4. OIDC token from `~/.tentacular/tokens/{env}.json` (via `tntc login`)
