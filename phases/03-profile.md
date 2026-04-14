@@ -9,7 +9,7 @@ produces workflows that fail silently in production.
 ## Check
 
 ```bash
-cat ~/.tentacular/envprofiles/<env>.md
+cat ~/.tentacular/clusterprofiles/<cluster>.md
 ```
 
 **Read the entire file output.** Check `generatedAt` on line 2. If less than 7 days old, proceed to **Read the Profile** below. Do not use `head`, `tail`, or any partial read — the Agent Guidance section is at the bottom and is mandatory.
@@ -24,19 +24,19 @@ tntc cluster profile --help 2>&1 | head -1
 If `unknown command` is returned, the installed binary is too old — update tntc first.
 
 ```bash
-# Generate for one environment
-tntc cluster profile --env <name> --save
+# Generate for one cluster
+tntc cluster profile --cluster <name> --save
 
-# Regenerate all environments
+# Regenerate all clusters
 tntc cluster profile --all --save
 
 # Force rebuild (ignore freshness guard)
-tntc cluster profile --env <name> --save --force
+tntc cluster profile --cluster <name> --save --force
 ```
 
 Profiles are saved to:
-- `~/.tentacular/envprofiles/<env>.md` (user-level config)
-- `.tentacular/envprofiles/<env>.md` (project-level config)
+- `~/.tentacular/clusterprofiles/<cluster>.md` (user-level config)
+- `.tentacular/clusterprofiles/<cluster>.md` (project-level config)
 
 ## Read the Profile
 

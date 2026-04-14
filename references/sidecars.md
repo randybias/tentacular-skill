@@ -261,7 +261,7 @@ and bash, and an image compatibility matrix.
 name to narrow output:
 
 ```
-wf_logs(namespace="my-ns", workflow="video-extractor", container="ffmpeg")
+wf_logs(enclave="my-ns", workflow="video-extractor", container="ffmpeg")
 ```
 
 The sidecar container name matches the `name` field in the sidecars declaration.

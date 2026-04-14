@@ -101,7 +101,7 @@ deployer identity and authorization metadata:
 - `tentacular.io/owner-sub`: owner's OIDC subject identifier
 - `tentacular.io/owner-email`: owner's email address
 - `tentacular.io/mode`: permission string (e.g., `rwxrwx---`)
-- `tentacular.io/auth-provider`: authentication provider type (e.g., `keycloak`, `bearer-token`)
+- `tentacular.io/auth-provider`: authentication provider type (e.g., `keycloak`)
 - `tentacular.io/created-at`: creation timestamp (set once on first deploy)
 
 **Audit annotations (stamped on UPDATE):**
@@ -113,8 +113,8 @@ These annotations are visible in `wf_describe` output. The enclave owner
 and tentacle owner can modify permissions via the `--mode` flag on
 `tntc deploy`. See `references/authorization.md` for permission presets.
 
-Bearer-token deploys bypass authorization entirely. To disable authz
-server-wide, set `TENTACULAR_AUTHZ_ENABLED=false`.
+To disable authz server-wide (development only), set
+`TENTACULAR_AUTHZ_ENABLED=false`.
 
 ## HTTP Redirect Targets
 

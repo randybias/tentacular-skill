@@ -18,7 +18,7 @@ Fix:
   `ghcr.io/randybias/tentacular-engine:latest` is accessible from the
   cluster.
 - If using a private registry, ensure an imagePullSecret is configured in
-  the namespace.
+  the enclave.
 
 ### CrashLoopBackOff
 
@@ -41,7 +41,7 @@ Fix:
 
 Symptom: Pod rejected with "violates PodSecurity" admission message.
 
-Diagnosis: The namespace has restricted Pod Security Admission enforcement.
+Diagnosis: The enclave has restricted Pod Security Admission enforcement.
 The MCP server auto-injects PSA-compliant security contexts into `wf_apply`
 manifests, but custom manifests submitted outside `wf_apply` may lack them.
 
@@ -60,7 +60,7 @@ Symptom: Workflow pod cannot reach an external dependency. Connection refused
 or timeout at runtime.
 
 Diagnosis: Check `contract.dependencies` for the target host. Run
-`audit_netpol` to see current policies in the namespace.
+`audit_netpol` to see current policies in the enclave.
 
 Fix: Ensure the dependency is declared in `contract.dependencies`.
 NetworkPolicy egress rules are auto-generated from the contract. If the
@@ -271,7 +271,7 @@ container logs show `sidecar health check timeout`.
 
 Diagnosis: Run `wf_logs` for the sidecar container (not the engine):
 ```
-wf_logs(namespace, pod, container="<sidecar-name>")
+wf_logs(enclave, pod, container="<sidecar-name>")
 ```
 
 Common causes:

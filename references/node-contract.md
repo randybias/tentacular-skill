@@ -26,6 +26,24 @@ export default async function run(
 - Nodes MUST return meaningful data. Returning `{}` or `{ status: "ok" }`
   is a contract violation -- downstream nodes cannot act on empty output.
 
+## Node Output Size Limit (Known Limitation)
+
+`wf_run` (MCP) serializes and returns ALL node outputs to the caller. Oversized
+outputs exceed the MCP inline token limit and cannot be returned. **Keep every
+node's return value under ~30KB.**
+
+Rules:
+- Pass only the minimal fields the next node needs -- not full raw API responses
+- Truncate free-form text fields (e.g., Slack message body, page content) to
+  ≤500 chars before returning
+- Terminal nodes should return a small summary (keys, counts, URLs) -- never
+  the full processed payload
+- Arrays of objects are the most common cause of bloat; bound their size or
+  project to minimal fields before returning
+
+Tracked in randybias/tentacular-mcp#112 — the platform will eventually enforce
+this at deploy/runtime, but tentacle authors must apply it manually today.
+
 ## Context API
 
 | Member | Type | Description |

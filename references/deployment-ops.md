@@ -39,7 +39,7 @@ The recommended agentic deployment flow validates workflows through six steps:
 tntc validate -o json               # 1. Validate spec + contract
 tntc visualize --rich --write       # 2. Persist contract artifacts
 tntc test -o json                   # 3. Mock tests + drift detection
-tntc test --live --env <target> -o json  # 4. Live test against target env
+tntc test --live --cluster <target> -o json  # 4. Live test against target cluster
 tntc deploy -o json                 # 5. Deploy (auto-gates on live)
 tntc run <name> -o json             # 6. Post-deploy verification
 ```
@@ -112,53 +112,53 @@ Run these checks after cluster profiling and before build/deploy:
 These checks are fast and prevent the most common class of
 deploy-then-debug failures.
 
-## Environment Promotion
+## Cluster Promotion
 
 Promotion is an **agent workflow pattern**, not a CLI command. The agent
 deploys to dev first, verifies health, then deploys to prod using the same
-CLI commands with different `--env` targets.
+CLI commands with different `--cluster` targets.
 
 ```bash
 # 1. Deploy to dev
-tntc deploy my-workflow --env dev
+tntc deploy my-workflow --cluster dev
 
 # 2. Verify health in dev (via MCP)
 #    Use wf_health MCP tool or:
-tntc status my-workflow --env dev --detail
+tntc status my-workflow --cluster dev --detail
 
 # 3. Run in dev to confirm
-tntc run my-workflow --env dev
+tntc run my-workflow --cluster dev
 
-# 4. Deploy to prod (same source, different env)
-tntc deploy my-workflow --env prod
+# 4. Deploy to prod (same source, different cluster)
+tntc deploy my-workflow --cluster prod
 
 # 5. Verify health in prod
-tntc status my-workflow --env prod --detail
+tntc status my-workflow --cluster prod --detail
 ```
 
 Agent promotion rules:
 
 - **Health gate:** The dev deployment MUST show GREEN health status before
   promoting to prod. Check with `wf_health` (MCP tool) or `tntc status`.
-- **Same source:** Both environments deploy from the same local workflow
-  source. Per-env settings (namespace, image, runtime_class, MCP endpoint)
-  come from the environment config.
-- **Secrets are separate:** Each environment has its own secrets. Deploying
+- **Same source:** Both clusters deploy from the same local workflow
+  source. Per-cluster settings (namespace, image, runtime_class, MCP endpoint)
+  come from the cluster config.
+- **Secrets are separate:** Each cluster has its own secrets. Deploying
   to prod does NOT copy dev secrets. Provision prod secrets separately before
   deploying.
 - **No automatic rollback:** If prod deploy fails, diagnose via `tntc logs`
   and `wf_health` before retrying.
 
-## Environment Configuration
+## Cluster Configuration
 
-Named environments (`dev`, `staging`, `production`) extend the config cascade
+Named clusters (`dev`, `staging`, `production`) extend the config cascade
 with cluster-specific settings. Define them in `~/.tentacular/config.yaml`
-or `.tentacular/config.yaml`. Each environment can specify `namespace`,
+or `.tentacular/config.yaml`. Each cluster can specify `namespace`,
 `image`, `runtime_class`, `mcp_endpoint`, `oidc_issuer`, `oidc_client_id`,
-`config_overrides`, and `secrets_source`. The `default_env` field sets which
-environment is used when no `--env` flag or `TENTACULAR_ENV` variable is set.
+`config_overrides`, and `secrets_source`. The `default_cluster` field sets which
+cluster is used when no `--cluster` flag or `TENTACULAR_CLUSTER` variable is set.
 
-Resolution order: CLI flags > environment config > project config > user
+Resolution order: CLI flags > cluster config > project config > user
 config > defaults.
 
 See the [Deploy a Tentacle](https://randybias.github.io/tentacular-docs/cookbook/deploy-tentacle/)
@@ -168,7 +168,7 @@ cookbook for full environment configuration details.
 
 After every deployment:
 
-1. Run `wf_health <name> -n <namespace>` -- check for green status.
+1. Run `wf_health <name>` -- check for green status.
 2. If amber or red, run `wf_logs` to find the error.
 3. Run the workflow once with `wf_run` to confirm end-to-end execution.
 4. Check `wf_health detail=true` to verify execution telemetry.

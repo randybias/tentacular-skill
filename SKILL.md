@@ -91,13 +91,13 @@ identity (email + subject) from the OIDC provider (Keycloak).
 
 | Auth Mode | Client | Login |
 |-----------|--------|-------|
-| CLI OIDC | `tntc` CLI | `tntc login --env <env>` |
+| CLI OIDC | `tntc` CLI | `tntc login --cluster <cluster>` |
 | Claude Code OAuth | Claude Code (`.mcp.json`) | Browser popup (automatic) |
 
 **CLI OIDC flow** (device-code grant):
 
-1. Run `tntc whoami --env <env>` to check authentication status
-2. If not authenticated, run `tntc login --env <env>` (browser-based SSO flow)
+1. Run `tntc whoami --cluster <cluster>` to check authentication status
+2. If not authenticated, run `tntc login --cluster <cluster>` (browser-based SSO flow)
 3. OIDC tokens last 12 hours -- re-authentication is infrequent
 4. If a 401/403 occurs mid-session, the token has expired -- re-run `tntc login`
 
@@ -119,7 +119,7 @@ advertises its authorization server automatically. Configure `.mcp.json`:
 ```
 
 On first connection, Claude Code opens a browser for Keycloak login. The
-resulting JWT carries the same OIDC identity as `tntc login` -- namespaces
+resulting JWT carries the same OIDC identity as `tntc login` -- enclaves
 and tentacles created via Claude Code have proper ownership annotations.
 
 Skipping login on an OIDC-enabled server causes all MCP tool calls to fail
@@ -139,16 +139,16 @@ permission model.
 | `wf_list` | List deployed workflows |
 | `wf_describe` | Describe a single workflow |
 | `wf_status` | Get resource status for a deployment |
-| `wf_pods` | List pods in a namespace |
+| `wf_pods` | List pods in an enclave |
 | `wf_logs` | Get pod logs |
 | `wf_events` | List namespace events |
 | `wf_jobs` | List Jobs and CronJobs |
 | `wf_health` | Single workflow G/A/R health |
-| `wf_health_ns` | Enclave-wide G/A/R health |
-| `cluster_preflight` | Run preflight checks |
+| `wf_health_enclave` | Enclave-wide G/A/R health |
+| `enclave_preflight` | Run preflight checks |
 | `cluster_profile` | Profile cluster capabilities |
 | `health_nodes` | Node readiness and capacity |
-| `health_ns_usage` | Enclave resource utilization |
+| `health_enclave_usage` | Enclave resource utilization |
 | `health_cluster_summary` | Cluster-wide resource summary |
 | `audit_rbac` | Audit RBAC findings |
 | `audit_netpol` | Audit network policies |
@@ -192,10 +192,10 @@ Execute in order. Each gate MUST pass before proceeding.
 Read `phases/01-install.md`. Gate: `tntc version` exits 0 AND
 `~/.tentacular/engine/main.ts` exists.
 
-### Phase 2: Configure Environments
+### Phase 2: Configure Clusters
 
 Read `phases/02-configure.md`. Gate: config file exists with at least one
-environment AND `tntc cluster check` passes.
+cluster AND `tntc cluster check` passes.
 
 ### Phase 3: Cluster Profile
 
@@ -511,13 +511,13 @@ Read `references/prompt-metadata.md` when:
 ## Deployment and Operations
 
 Deployment flow: validate -> visualize -> test -> live test -> deploy ->
-verify -> health check. Environment promotion is an agent pattern, not a CLI
+verify -> health check. Cluster promotion is an agent pattern, not a CLI
 command.
 
 Read `references/deployment-ops.md` when:
 - Deploying a workflow
-- Promoting between environments
-- Configuring environment settings
+- Promoting between clusters
+- Configuring cluster settings
 - Running dependency preflight checks
 
 ## Observability

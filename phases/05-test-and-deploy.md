@@ -53,12 +53,12 @@ the node that broke the chain.
 ### Gate 5: Live test (required before any production deploy)
 
 ```bash
-tntc test --live --env <your-environment>
+tntc test --live --cluster <your-cluster>
 ```
 
-Replace `<your-environment>` with the target environment name (e.g., `dev`, `staging`). No production deploy without a passing live test. No exceptions.
+Replace `<your-cluster>` with the target cluster name (e.g., `dev`, `staging`). No production deploy without a passing live test. No exceptions.
 
-If the target environment is unavailable: stop and resolve that before deploying to prod.
+If the target cluster is unavailable: stop and resolve that before deploying to prod.
 
 ---
 
@@ -73,7 +73,7 @@ verify a fresh deploy.
 ### Step 1: Deploy first, then trigger manually
 
 ```bash
-tntc deploy --env <target>
+tntc deploy --cluster <target>
 tntc status <workflow-name>   # wait for ready
 ```
 
@@ -84,7 +84,7 @@ module resolution timeout. Wait for the pod to restart (one restart is normal)
 and confirm readiness before proceeding:
 
 ```bash
-wf_pods namespace=<namespace>   # check for 1 restart, then ready
+wf_pods enclave=<enclave>   # check for 1 restart, then ready
 ```
 
 Then trigger manually:
@@ -98,7 +98,7 @@ tntc run <workflow-name>      # manual trigger — fires the workflow immediatel
 After `tntc run`, the workflow pod runs to completion and its logs persist briefly. **Keep the workflow deployed** until you have confirmed the output is correct.
 
 ```bash
-KUBECONFIG=/full/path/to/kubeconfig tntc logs <workflow-name> -n <namespace>
+KUBECONFIG=/full/path/to/kubeconfig tntc logs <workflow-name> -n <enclave>
 ```
 
 If `tntc logs` returns nothing yet, the pod may still be running. Poll until output appears:
@@ -122,13 +122,13 @@ Only after all 5 gates pass:
 
 ```bash
 tntc build --push
-tntc deploy --env <target>
+tntc deploy --cluster <target>
 
 # Optional: deploy to a specific enclave
-tntc deploy --env <target> --enclave <enclave-name>
+tntc deploy --cluster <target> --enclave <enclave-name>
 
 # Optional: set permission mode at deploy time
-tntc deploy --env <target> --mode member-read
+tntc deploy --cluster <target> --mode member-read
 ```
 
 ### Post-deploy verification
@@ -155,8 +155,8 @@ reports healthy via the MCP health tools:
 2. If amber or red, use `wf_health` with `detail=true`
    to get execution telemetry, then `wf_logs` for
    pod-level diagnostics.
-3. For namespace-wide checks, use `wf_health_ns` to
-   confirm all workflows in the namespace are green.
+3. For enclave-wide checks, use `wf_health_enclave` to
+   confirm all workflows in the enclave are green.
 
 A green health status after a successful `tntc run`
 confirms the workflow is fully operational.
@@ -168,32 +168,21 @@ the data flow, and find the performative or broken node.
 ### Post-deploy permissions management
 
 When deploying with OIDC authentication, the workflow is automatically
-assigned owner, group, and mode permissions. Check and adjust as needed:
-
-```bash
-# Check current permissions
-tntc permissions get <enclave> <workflow-name>
-
-# Change mode (rwx string or preset name)
-tntc permissions chmod member-read <enclave> <workflow-name>
-
-# Change group
-tntc permissions chgrp <group-name> <enclave> <workflow-name>
-```
-
-Only the workflow owner can modify permissions.
+assigned owner, member, and mode permissions. To adjust permissions after
+deploy, use `enclave_sync` (MCP tool) or the `@kraken set mode` command.
+Only the enclave owner can change the enclave permission mode.
 
 ---
 
 ## Querying Deployed Workflows
 
-`tntc list`, `tntc status`, `tntc logs`, and `tntc run` do not support `--env`.
+`tntc list`, `tntc status`, `tntc logs`, and `tntc run` do not support `--cluster`.
 You must resolve the actual kubeconfig path and namespace from config first:
 
 ```bash
 # Step 1: read the actual values from config
 cat ~/.tentacular/config.yaml
-# Find your environment block, e.g.:
+# Find your cluster block, e.g.:
 #   prod:
 #     kubeconfig: ~/secrets/prod.kubeconfig   ← this is the path
 #     namespace: tentacular-prod              ← this is the namespace
@@ -207,7 +196,7 @@ KUBECONFIG=/Users/yourname/secrets/prod.kubeconfig tntc status <name> -n tentacu
 KUBECONFIG=/Users/yourname/secrets/prod.kubeconfig tntc logs <name> -n tentacular-prod
 ```
 
-Do not use `<env.kubeconfig>` literally. Do not pass `~` unexpanded.
+Do not use `<cluster.kubeconfig>` literally. Do not pass `~` unexpanded.
 
 ---
 
@@ -218,7 +207,7 @@ Do not use `<env.kubeconfig>` literally. Do not pass `~` unexpanded.
 - [ ] `tntc validate` passes
 - [ ] All individual node tests pass
 - [ ] `tntc test --pipeline` passes with correct final output
-- [ ] `tntc test --live --env <your-environment>` passes
+- [ ] `tntc test --live --cluster <your-cluster>` passes
 - [ ] `workflow-diagram.md` and `contract-summary.md` generated: `tntc visualize --rich --write`
 - [ ] `tntc run` post-deploy output verified (not empty, not a status string)
 
@@ -232,7 +221,7 @@ Do not use `<env.kubeconfig>` literally. Do not pass `~` unexpanded.
 deploy using the pre-existing engine image:
 
 ```bash
-tntc deploy --env <target> --skip-live-test
+tntc deploy --cluster <target> --skip-live-test
 ```
 
 The engine image (`ghcr.io/randybias/tentacular-engine:latest`) is shared across
