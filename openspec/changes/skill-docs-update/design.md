@@ -46,7 +46,7 @@ Old:
 ```yaml
 environments:
   dev:
-    kubeconfig: ~/dev-secrets/kubeconfigs/dev.kubeconfig
+    kubeconfig: ~/.kube/configs/dev.kubeconfig
     namespace: tentacular-dev-wf
 ```
 
@@ -55,7 +55,7 @@ New:
 default_env: dev
 environments:
   dev:
-    kubeconfig: ~/dev-secrets/kubeconfigs/dev.kubeconfig
+    kubeconfig: ~/.kube/configs/dev.kubeconfig
     namespace: tentacular-dev-wf
     mcp_endpoint: http://tentacular-mcp.tentacular-system.svc.cluster.local:8080
     mcp_token_path: ~/.tentacular/tokens/dev-mcp-token
