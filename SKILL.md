@@ -30,6 +30,8 @@ description: "Build, test, and deploy TypeScript workflow DAGs on Kubernetes usi
 | 19 | Deploying without committing when git-state is enabled | Deploy gate blocks with "dirty working tree" error | Write/update `CONTEXT.md`, run `tntc state commit "<message>"` before `tntc deploy` |
 | 20 | Writing an LLM node without authoring prompts.yaml or reviewing the prompt with the user | Prompts ship without user approval, quality issues not caught | Author prompts.yaml entry, show full prompt text to user, wait for approval |
 | 21 | Defining a node without a `description:` field | `tntc validate` and `wf_apply` both reject the workflow | Every node must have `description: "..."` explaining what it does |
+| 22 | Hardcoding credentials in node source (API keys, tokens) or using flat dotted keys in shared secret files (`openai.api_key: "sk-..."`) | Credential committed to git; flat dotted key mounts as `secrets["openai.api_key"]` so `ctx.dependency().secret` is silently empty | Use `ctx.dependency(name).secret`; provision via `~/tentacles/.secrets/<group>` as JSON keyed by subkey. See `references/secrets.md`. |
+| 23 | Writing to `outbound.ndjson` from workflow node code to post Slack messages | File not mounted in workflow pod; writes silently fail | Use `ctx.dependency("slack")` + `chat.postMessage` directly. See `references/secrets.md`. |
 
 ---
 
@@ -414,6 +416,19 @@ Read `references/contract-model.md` when:
 - Working with exoskeleton services
 - Configuring SSO/auth for deploy
 
+## Secrets
+
+Per-tentacle `.secrets.yaml` maps group names to `$shared.<name>` references.
+Workspace-root `~/tentacles/.secrets/<name>` files hold JSON-keyed values.
+The engine resolves `auth.secret: "group.subkey"` via dot-split nested lookup.
+Direct values in `.secrets.yaml` are rejected at deploy time.
+
+Read `references/secrets.md` when:
+- Provisioning secrets for any tentacle that calls an external API
+- Calling Slack (or any messaging API) from a workflow node
+- Debugging empty or missing secrets at runtime
+- Setting up a new tentacle's `.secrets.yaml` for the first time
+
 ## Enclaves
 
 An enclave is the primary organizational unit: a Slack channel + Kubernetes
@@ -546,6 +561,7 @@ Read `references/observability.md` when:
 | `references/node-contract.md` | Node signature, Context API |
 | `references/workflow-spec.md` | workflow.yaml schema and triggers |
 | `references/contract-model.md` | Contract deps, exoskeleton, SSO |
+| `references/secrets.md` | $shared format, shared files, engine resolution, Slack pattern, common mistakes |
 | `references/deployment-ops.md` | Deploy flow, promotion, env config |
 | `references/enclaves.md` | Enclave model, lifecycle, tools, permission presets, common workflows |
 | `references/authorization.md` | Permission model, presets, CLI/MCP tools, CheckEnclave/CheckTentacle paths |
